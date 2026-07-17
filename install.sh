@@ -16,7 +16,7 @@
 set -euo pipefail
 
 # ----------------------------- configuration --------------------------------
-REPO_URL=""                          # <-- your GitHub repo URL, e.g. https://github.com/you/e-voting.git
+REPO_URL="https://github.com/ryry17jack/evoting.git"
 APP_DIR="/opt/e-voting"              # where the app will live
 APP_PORT="3000"
 DB_NAME="evoting_db"
