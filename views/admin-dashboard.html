@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>แดชบอร์ดผู้ดูแล | E-VOTING ADMIN</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="admin-wrap">
+
+    <!-- ═══════════ ส่วนหัว ═══════════ -->
+    <header class="admin-header">
+      <div>
+        <h1>🗳 แดชบอร์ดควบคุมการเลือกตั้ง</h1>
+        <p style="font-weight:bold;">E-VOTING CONTROL PANEL — ผู้ใช้งาน: <span id="admin-username">...</span></p>
+      </div>
+      <a href="/admin/logout" class="btn btn-red" style="font-size:1.2rem;">◄ ออกจากระบบ (LOG OUT)</a>
+    </header>
+
+    <!-- ═══════════ กล่องสถิติรวม ═══════════ -->
+    <div class="mt-3" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:24px;">
+      <div class="stat-box">
+        <div id="stat-total-voters" class="stat-number">0</div>
+        <div class="stat-label">ผู้มาใช้สิทธิ์ทั้งหมด (คน)</div>
+      </div>
+      <div class="stat-box" style="background:#55ffff;">
+        <div id="stat-total-votes" class="stat-number">0</div>
+        <div class="stat-label">คะแนนที่นับแล้ว (เสียง)</div>
+      </div>
+      <div class="stat-box" style="background:#ffffff;">
+        <div id="stat-updated" class="stat-number" style="font-size:1.6rem; padding-top:14px;">--:--:--</div>
+        <div class="stat-label">อัปเดตล่าสุด (ทุก 3 วินาที)</div>
+      </div>
+    </div>
+
+    <!-- ═══════════ ส่วนที่ 2: ผลคะแนนสด ═══════════ -->
+    <div class="mt-3">
+      <div class="section-title">
+        <span>📊 ผลคะแนนแบบเรียลไทม์ (LIVE ELECTION RESULTS)</span>
+        <span class="badge-yellow blink" style="border-color:#fff;">● LIVE</span>
+      </div>
+      <div class="panel" style="border-top:none;">
+        <table class="retro-table">
+          <thead>
+            <tr>
+              <th style="width:110px;">หมายเลข</th>
+              <th>ชื่อผู้สมัคร</th>
+              <th style="width:140px;">คะแนน</th>
+              <th style="width:110px;">ร้อยละ</th>
+            </tr>
+          </thead>
+          <tbody id="results-table-body"></tbody>
+        </table>
+
+        <div id="results-meters"><!-- Block meters เติมด้วย JS --></div>
+      </div>
+    </div>
+
+    <!-- ═══════════ ส่วนที่ 3: จัดการผู้สมัคร (CRUD) ═══════════ -->
+    <div class="mt-3">
+      <div class="section-title">
+        <span>🧑‍💼 จัดการผู้สมัคร (MANAGE CANDIDATES)</span>
+        <button id="btn-add-candidate" class="btn btn-yellow" style="font-size:1rem; padding:8px 20px;">＋ เพิ่มผู้สมัคร</button>
+      </div>
+      <div class="panel" style="border-top:none;">
+
+        <!-- ฟอร์มเพิ่ม/แก้ไขผู้สมัคร (ซ่อนไว้จนกว่าจะกดเพิ่ม/แก้ไข) -->
+        <div id="candidate-form-box" class="win-window mb-2" style="display:none; margin-bottom:20px;">
+          <div class="win-titlebar">
+            <span id="candidate-form-title">เพิ่มผู้สมัครใหม่</span>
+            <div class="win-buttons"><span id="candidate-form-close" style="cursor:pointer;">✕</span></div>
+          </div>
+          <div class="win-body">
+            <div id="candidate-form-error" class="error-box" style="display:none;"></div>
+            <form id="candidate-form" style="display:grid; grid-template-columns:140px 1fr; gap:0 20px; align-items:start;">
+              <div>
+                <img id="candidate-photo-preview" src="/img/novote.svg" alt="ตัวอย่างรูปผู้สมัคร"
+                     style="width:140px; height:140px; object-fit:cover; border:3px solid #000; background:#55ffff;">
+                <label class="btn" for="candidate-photo-input" style="display:block; margin-top:10px; font-size:0.9rem; padding:8px 4px;">
+                  📷 เลือกรูปภาพ
+                </label>
+                <input type="file" id="candidate-photo-input" name="photo" accept="image/*" style="display:none;">
+              </div>
+              <div>
+                <label class="form-label" style="margin-top:0;">หมายเลขผู้สมัคร *</label>
+                <input type="number" id="candidate-no-input" name="candidate_no" class="form-input" min="0" max="999" required style="width:160px;">
+                <label class="form-label">ชื่อ-นามสกุลผู้สมัคร *</label>
+                <input type="text" id="candidate-name-input" name="candidate_name" class="form-input" maxlength="255" required>
+                <label class="form-label">รายละเอียดเพิ่มเติม (นโยบาย / สังกัด ฯลฯ)</label>
+                <textarea id="candidate-desc-input" name="description" class="form-input" rows="3" style="resize:vertical;"></textarea>
+                <div class="mt-2">
+                  <button type="submit" id="candidate-save-btn" class="btn btn-green">💾 บันทึกข้อมูล</button>
+                  <button type="button" id="candidate-cancel-btn" class="btn">ยกเลิก</button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <!-- ตารางผู้สมัคร -->
+        <table class="retro-table">
+          <thead>
+            <tr>
+              <th style="width:90px;">รูป</th>
+              <th style="width:100px;">หมายเลข</th>
+              <th>ชื่อผู้สมัคร</th>
+              <th>รายละเอียด</th>
+              <th style="width:100px;">คะแนน</th>
+              <th style="width:230px;">จัดการ</th>
+            </tr>
+          </thead>
+          <tbody id="candidates-table-body">
+            <tr><td colspan="6" class="text-center">กำลังโหลดข้อมูล...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ═══════════ ส่วนที่ 1: บันทึกกิจกรรมนักศึกษา ═══════════ -->
+    <div class="mt-3">
+      <div class="section-title">
+        <span>📋 บันทึกการเข้าร่วมกิจกรรมของนักศึกษา (STUDENT ACTIVITY LOGS)</span>
+        <span id="logs-total-badge" class="badge-yellow" style="border-color:#fff;">รวม 0 คน</span>
+      </div>
+      <div class="panel" style="border-top:none;">
+        <div class="table-scroll">
+          <table class="retro-table">
+            <thead>
+              <tr>
+                <th style="width:70px;">ลำดับ</th>
+                <th style="width:220px;">เลขบัตรประชาชน</th>
+                <th>ชื่อ-นามสกุล</th>
+                <th style="width:220px;">เวลาที่ลงคะแนน</th>
+              </tr>
+            </thead>
+            <tbody id="logs-table-body">
+              <tr><td colspan="4" class="text-center">กำลังโหลดข้อมูล...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════ ส่วนที่ 4: ล้างข้อมูล (DANGER ZONE) ═══════════ -->
+    <div class="mt-3">
+      <div class="section-title section-danger">
+        <span>🧹 ล้างข้อมูลสำหรับการเลือกตั้งครั้งใหม่ (CLEAR ELECTION DATA)</span>
+        <span class="badge-yellow" style="border-color:#fff;">⚠ โซนอันตราย</span>
+      </div>
+      <div class="panel" style="border-top:none;">
+        <p style="font-weight:bold; margin-bottom:14px;">
+          เลือกข้อมูลที่ต้องการล้าง — <u>ข้อมูลที่ล้างแล้วกู้คืนไม่ได้</u>
+          (รายชื่อผู้สมัครจะไม่ถูกลบ หากต้องการลบให้ใช้ส่วน "จัดการผู้สมัคร")
+        </p>
+
+        <label class="clear-option">
+          <input type="checkbox" id="clear-logs-check">
+          <span>
+            <strong>บันทึกผู้มาใช้สิทธิ์ (Activity Logs)</strong><br>
+            <small>ลบรายชื่อผู้มาใช้สิทธิ์ทั้งหมด — ทุกคนจะกลับมาลงคะแนนได้อีกครั้ง</small>
+          </span>
+        </label>
+
+        <label class="clear-option">
+          <input type="checkbox" id="clear-votes-check">
+          <span>
+            <strong>คะแนนของผู้สมัครทุกคน (Vote Counts)</strong><br>
+            <small>รีเซ็ตคะแนนทั้งหมดเป็น 0 — รายชื่อและรูปผู้สมัครยังอยู่ครบ</small>
+          </span>
+        </label>
+
+        <div class="mt-2" style="display:flex; align-items:center; gap:16px; flex-wrap:wrap;">
+          <button id="btn-clear-data" class="btn btn-red" style="font-size:1.1rem;">🧹 ล้างข้อมูลที่เลือก</button>
+          <span id="clear-data-result" style="font-weight:bold;"></span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="/js/admin-dashboard.js"></script>
+</body>
+</html>

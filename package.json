@@ -1,0 +1,24 @@
+{
+  "name": "e-voting-kiosk",
+  "version": "1.0.0",
+  "description": "ระบบเลือกตั้งอิเล็กทรอนิกส์หน้างาน (On-site E-Voting) พร้อมยืนยันตัวตนด้วยบัตรประชาชน (e-KYC)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "express": "^4.19.2",
+    "express-session": "^1.18.0",
+    "iconv-lite": "^0.6.3",
+    "multer": "^2.2.0",
+    "mysql2": "^3.11.0",
+    "socket.io": "^4.7.5"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "optionalDependencies": {
+    "@pokusew/pcsclite": "^0.6.0"
+  }
+}

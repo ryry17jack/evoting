@@ -1,0 +1,543 @@
+/* =====================================================================
+   E-VOTING SYSTEM — 90s RETRO / WINDOWS 95 HEAVY TECH STYLE
+   กติกา: มุมฉาก 90 องศาเท่านั้น (ห้าม border-radius), เส้นขอบดำหนา 3px,
+   สีสดจัดจ้าน (พื้นฟ้าอมเขียวเรโทร, หัวสีน้ำเงินเข้ม, เหลืองสด)
+   ===================================================================== */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  border-radius: 0 !important;
+}
+
+:root {
+  --retro-cyan: #00a8a8;
+  --retro-cyan-light: #55ffff;
+  --retro-blue: #0000aa;
+  --retro-blue-bright: #0055ff;
+  --retro-yellow: #ffd500;
+  --retro-red: #dd0000;
+  --retro-green: #00aa00;
+  --retro-gray: #c0c0c0;
+  --retro-white: #ffffff;
+  --retro-black: #000000;
+}
+
+body {
+  font-family: 'Tahoma', 'Leelawadee UI', 'Microsoft Sans Serif', sans-serif;
+  background-color: var(--retro-cyan);
+  background-image: repeating-linear-gradient(
+    45deg,
+    transparent 0px,
+    transparent 18px,
+    rgba(0, 0, 0, 0.04) 18px,
+    rgba(0, 0, 0, 0.04) 36px
+  );
+  color: var(--retro-black);
+  min-height: 100vh;
+}
+
+/* ---------- กรอบหน้าต่างสไตล์ Windows 95 ---------- */
+.win-window {
+  background: var(--retro-gray);
+  border: 3px solid var(--retro-black);
+  box-shadow: 8px 8px 0 var(--retro-black);
+}
+
+.win-titlebar {
+  background: var(--retro-blue);
+  color: var(--retro-white);
+  border-bottom: 3px solid var(--retro-black);
+  padding: 10px 16px;
+  font-weight: bold;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  letter-spacing: 1px;
+}
+
+.win-titlebar .win-buttons span {
+  display: inline-block;
+  width: 26px;
+  height: 26px;
+  background: var(--retro-gray);
+  border: 3px solid var(--retro-black);
+  color: var(--retro-black);
+  text-align: center;
+  line-height: 20px;
+  font-weight: bold;
+  margin-left: 4px;
+  font-size: 14px;
+}
+
+.win-body {
+  padding: 20px;
+}
+
+/* ---------- ปุ่มเรโทร ---------- */
+.btn {
+  display: inline-block;
+  font-family: inherit;
+  font-weight: bold;
+  border: 3px solid var(--retro-black);
+  background: var(--retro-gray);
+  color: var(--retro-black);
+  padding: 12px 28px;
+  font-size: 1.1rem;
+  cursor: pointer;
+  box-shadow: 5px 5px 0 var(--retro-black);
+  text-decoration: none;
+  text-align: center;
+  transition: none;
+}
+
+.btn:active {
+  transform: translate(5px, 5px);
+  box-shadow: 0 0 0 var(--retro-black);
+}
+
+.btn-blue { background: var(--retro-blue-bright); color: var(--retro-white); }
+.btn-yellow { background: var(--retro-yellow); color: var(--retro-black); }
+.btn-red { background: var(--retro-red); color: var(--retro-white); }
+.btn-green { background: var(--retro-green); color: var(--retro-white); }
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ---------- ฟอร์ม ---------- */
+.form-label {
+  display: block;
+  font-weight: bold;
+  margin: 14px 0 6px;
+  font-size: 1rem;
+}
+
+.form-input {
+  width: 100%;
+  border: 3px solid var(--retro-black);
+  background: var(--retro-white);
+  font-family: inherit;
+  font-size: 1.15rem;
+  padding: 12px 14px;
+  outline: none;
+}
+
+.form-input:focus {
+  background: #ffffcc;
+}
+
+/* ---------- ตารางเรโทร ---------- */
+.retro-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--retro-white);
+  border: 3px solid var(--retro-black);
+}
+
+.retro-table th {
+  background: var(--retro-blue);
+  color: var(--retro-white);
+  border: 3px solid var(--retro-black);
+  padding: 12px 14px;
+  font-size: 1rem;
+  text-align: left;
+  letter-spacing: 0.5px;
+}
+
+.retro-table td {
+  border: 3px solid var(--retro-black);
+  padding: 10px 14px;
+  font-size: 1rem;
+}
+
+.retro-table tbody tr:nth-child(even) {
+  background: #e8e8e8;
+}
+
+/* ---------- ป้าย/กล่องเน้น ---------- */
+.badge-yellow {
+  display: inline-block;
+  background: var(--retro-yellow);
+  border: 3px solid var(--retro-black);
+  padding: 6px 16px;
+  font-weight: bold;
+}
+
+.panel {
+  background: var(--retro-white);
+  border: 3px solid var(--retro-black);
+  padding: 16px;
+}
+
+/* ---------- แถบมิเตอร์แบบบล็อก (Block Meter) ---------- */
+.block-meter {
+  display: flex;
+  gap: 4px;
+  background: var(--retro-white);
+  border: 3px solid var(--retro-black);
+  padding: 6px;
+  height: 44px;
+}
+
+.block-meter .blk {
+  flex: 1;
+  background: #dddddd;
+  border: 2px solid #999999;
+}
+
+.block-meter .blk.on {
+  background: var(--retro-blue-bright);
+  border: 2px solid var(--retro-black);
+}
+
+.block-meter.meter-yellow .blk.on { background: var(--retro-yellow); }
+.block-meter.meter-red .blk.on { background: var(--retro-red); }
+.block-meter.meter-green .blk.on { background: var(--retro-green); }
+
+/* ---------- ตัวช่วยทั่วไป ---------- */
+.text-center { text-align: center; }
+.mt-1 { margin-top: 10px; }
+.mt-2 { margin-top: 20px; }
+.mt-3 { margin-top: 30px; }
+.blink { animation: blink-anim 1s steps(2, start) infinite; }
+
+@keyframes blink-anim {
+  to { visibility: hidden; }
+}
+
+/* =====================================================================
+   KIOSK (หน้าคูหาลงคะแนน) — ตัวหนังสือใหญ่ยักษ์ ปุ่มใหญ่ยักษ์
+   ===================================================================== */
+
+.kiosk-screen {
+  min-height: 100vh;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 30px;
+}
+
+.kiosk-screen.active {
+  display: flex;
+}
+
+.kiosk-title {
+  font-size: clamp(2rem, 5vw, 3.4rem);
+  font-weight: bold;
+  text-shadow: 4px 4px 0 rgba(0, 0, 0, 0.25);
+}
+
+.kiosk-giant-text {
+  font-size: clamp(2.4rem, 7vw, 5rem);
+  font-weight: bold;
+  line-height: 1.25;
+}
+
+.kiosk-window {
+  width: min(1100px, 96vw);
+}
+
+.kiosk-card-icon {
+  font-size: clamp(5rem, 12vw, 9rem);
+  line-height: 1;
+}
+
+/* จอเตือน "ลงคะแนนแล้ว" */
+.screen-warning {
+  background: var(--retro-red);
+}
+
+.screen-warning .win-window {
+  box-shadow: 8px 8px 0 rgba(0, 0, 0, 0.6);
+}
+
+/* จอขอบคุณ */
+.screen-thanks {
+  background: var(--retro-green);
+}
+
+/* ---------- หน้าบัตรเลือกตั้ง (เต็มจอ รองรับผู้สมัคร 4 คนขึ้นไปโดยไม่ต้องเลื่อน) ---------- */
+#screen-ballot {
+  justify-content: flex-start;
+  padding: 12px 10px 52px; /* เผื่อที่ให้แถบสถานะด้านล่าง */
+}
+
+.ballot-window {
+  width: 98vw;
+}
+
+.ballot-window .win-body {
+  padding: 14px;
+}
+
+.ballot-header {
+  padding: 10px 14px;
+}
+
+.ballot-header .kiosk-title {
+  font-size: clamp(1.3rem, 2.6vw, 2rem);
+}
+
+.ballot-header #voter-name {
+  font-size: clamp(1.1rem, 2vw, 1.6rem);
+  font-weight: bold;
+}
+
+.ballot-header .ballot-hint {
+  font-size: clamp(0.85rem, 1.3vw, 1.05rem);
+  font-weight: bold;
+  margin-top: 4px;
+}
+
+/* รายการผู้สมัคร — บังคับแถวเดียว ทุกช่องกว้างเท่ากัน การ์ดย่อ-ขยายตามจำนวน */
+.candidate-grid {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: clamp(10px, 1.4vw, 24px);
+  width: 100%;
+}
+
+.candidate-card {
+  background: var(--retro-white);
+  border: 3px solid var(--retro-black);
+  box-shadow: 6px 6px 0 var(--retro-black);
+  padding: clamp(8px, 1.2vw, 20px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(6px, 1.2vh, 14px);
+  min-width: 0; /* ยอมให้การ์ดแคบกว่าคอนเทนต์ได้ ป้องกันการล้นแนวนอน */
+}
+
+.candidate-photo {
+  width: 100%;
+  max-width: 240px;
+  aspect-ratio: 1 / 1;
+  height: auto;
+  max-height: 32vh;
+  border: 3px solid var(--retro-black);
+  object-fit: cover;
+  background: var(--retro-cyan-light);
+}
+
+.candidate-no {
+  background: var(--retro-yellow);
+  border: 3px solid var(--retro-black);
+  font-size: clamp(1.1rem, 2vw, 2.2rem);
+  font-weight: bold;
+  padding: 2px 8%;
+  white-space: nowrap;
+}
+
+.candidate-name {
+  font-size: clamp(0.95rem, 1.5vw, 1.4rem);
+  font-weight: bold;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.candidate-desc {
+  font-size: clamp(0.8rem, 1.1vw, 1.05rem);
+  text-align: center;
+  background: #ffffcc;
+  border: 3px solid var(--retro-black);
+  padding: 6px 8px;
+  width: 100%;
+  /* จำกัด 3 บรรทัด กันรายละเอียดยาวจนดันจอให้เลื่อน */
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.btn-vote {
+  width: 100%;
+  font-size: clamp(1rem, 1.7vw, 1.6rem);
+  padding: clamp(10px, 1.8vh, 20px) 6px;
+  margin-top: auto; /* ดันปุ่มลงล่างสุด ให้ปุ่มทุกใบอยู่แนวเดียวกัน */
+}
+
+/* แถบสถานะเครื่องอ่านบัตร */
+.reader-statusbar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--retro-gray);
+  border-top: 3px solid var(--retro-black);
+  padding: 8px 18px;
+  font-weight: bold;
+  font-size: 0.95rem;
+  display: flex;
+  gap: 24px;
+  z-index: 50;
+}
+
+.status-led {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--retro-black);
+  background: var(--retro-red);
+  margin-right: 8px;
+  vertical-align: middle;
+}
+
+.status-led.on {
+  background: #00ff00;
+}
+
+/* =====================================================================
+   ADMIN DASHBOARD
+   ===================================================================== */
+
+.admin-wrap {
+  max-width: 1280px;
+  margin: 30px auto;
+  padding: 0 20px 60px;
+}
+
+.admin-header {
+  background: var(--retro-blue);
+  color: var(--retro-white);
+  border: 3px solid var(--retro-black);
+  box-shadow: 8px 8px 0 var(--retro-black);
+  padding: 20px 26px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.admin-header h1 {
+  font-size: 1.7rem;
+  letter-spacing: 1px;
+}
+
+.stat-box {
+  background: var(--retro-yellow);
+  border: 3px solid var(--retro-black);
+  box-shadow: 6px 6px 0 var(--retro-black);
+  padding: 18px 26px;
+  text-align: center;
+}
+
+.stat-box .stat-number {
+  font-size: 3.2rem;
+  font-weight: bold;
+  line-height: 1;
+}
+
+.stat-box .stat-label {
+  font-weight: bold;
+  margin-top: 6px;
+}
+
+.section-title {
+  background: var(--retro-blue-bright);
+  color: var(--retro-white);
+  border: 3px solid var(--retro-black);
+  padding: 12px 18px;
+  font-size: 1.25rem;
+  font-weight: bold;
+  letter-spacing: 1px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.section-danger {
+  background: var(--retro-red);
+}
+
+.clear-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  background: #ffeeee;
+  border: 3px solid var(--retro-black);
+  padding: 14px 16px;
+  margin-top: 12px;
+  cursor: pointer;
+}
+
+.clear-option:hover {
+  background: #ffdddd;
+}
+
+.clear-option input[type='checkbox'] {
+  width: 26px;
+  height: 26px;
+  margin-top: 2px;
+  accent-color: var(--retro-red);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.clear-option small {
+  font-size: 0.95rem;
+}
+
+.result-row {
+  display: grid;
+  grid-template-columns: 90px 1fr 140px;
+  gap: 16px;
+  align-items: center;
+  margin-top: 16px;
+}
+
+.result-no {
+  background: var(--retro-yellow);
+  border: 3px solid var(--retro-black);
+  font-size: 1.8rem;
+  font-weight: bold;
+  text-align: center;
+  padding: 10px 0;
+}
+
+.result-count {
+  background: var(--retro-white);
+  border: 3px solid var(--retro-black);
+  font-size: 1.8rem;
+  font-weight: bold;
+  text-align: center;
+  padding: 10px 0;
+}
+
+.table-scroll {
+  max-height: 480px;
+  overflow-y: auto;
+  border: 3px solid var(--retro-black);
+}
+
+.table-scroll .retro-table {
+  border: none;
+}
+
+/* ---------- Login ---------- */
+.login-wrap {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.login-window {
+  width: min(460px, 94vw);
+}
+
+.error-box {
+  background: var(--retro-red);
+  color: var(--retro-white);
+  border: 3px solid var(--retro-black);
+  padding: 12px 16px;
+  font-weight: bold;
+  margin-bottom: 14px;
+}

@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>คูหาลงคะแนนอิเล็กทรอนิกส์ | E-VOTING KIOSK</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+  <!-- ═══════════ STATE 1: หน้าจอต้อนรับ ═══════════ -->
+  <section id="screen-welcome" class="kiosk-screen active">
+    <div class="win-window kiosk-window">
+      <div class="win-titlebar">
+        <span>E-VOTING.EXE — ระบบเลือกตั้งอิเล็กทรอนิกส์</span>
+        <span class="win-buttons"><span>_</span><span>□</span><span>×</span></span>
+      </div>
+      <div class="win-body text-center">
+        <div class="kiosk-card-icon">💳</div>
+        <h1 class="kiosk-giant-text mt-2">กรุณาเสียบบัตรประชาชน<br>เพื่อลงคะแนนเสียง</h1>
+        <p class="badge-yellow mt-3 blink" style="font-size:1.5rem;">▼ เสียบบัตรที่เครื่องอ่านด้านล่าง ▼</p>
+        <p class="mt-2" style="font-weight:bold;">ระบบจะยืนยันตัวตนอัตโนมัติ (e-KYC) — 1 คน ลงคะแนนได้ 1 ครั้งเท่านั้น</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ กำลังอ่านบัตร ═══════════ -->
+  <section id="screen-reading" class="kiosk-screen">
+    <div class="win-window kiosk-window">
+      <div class="win-titlebar"><span>กำลังตรวจสอบข้อมูล...</span></div>
+      <div class="win-body text-center">
+        <div class="kiosk-card-icon">⏳</div>
+        <h1 class="kiosk-giant-text mt-2">กำลังอ่านบัตร...</h1>
+        <p class="badge-yellow mt-3" style="font-size:1.3rem;">กรุณาอย่าดึงบัตรออกจนกว่าระบบจะตรวจสอบเสร็จ</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ STATE 2 (ไม่ผ่าน): ลงคะแนนซ้ำ ═══════════ -->
+  <section id="screen-warning" class="kiosk-screen screen-warning">
+    <div class="win-window kiosk-window">
+      <div class="win-titlebar" style="background:#000;"><span>⚠ คำเตือนระบบ ⚠</span></div>
+      <div class="win-body text-center">
+        <div class="kiosk-card-icon">🚫</div>
+        <h1 class="kiosk-giant-text mt-2" style="color:#dd0000;">คุณได้ลงคะแนนไปแล้ว!</h1>
+        <p id="warning-name" class="mt-2" style="font-size:1.6rem; font-weight:bold;"></p>
+        <p class="badge-yellow mt-3" style="font-size:1.3rem;">ไม่สามารถลงคะแนนซ้ำได้ — กรุณาดึงบัตรออก</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ ข้อผิดพลาดการอ่านบัตร ═══════════ -->
+  <section id="screen-error" class="kiosk-screen screen-warning">
+    <div class="win-window kiosk-window">
+      <div class="win-titlebar" style="background:#000;"><span>⚠ ข้อผิดพลาด ⚠</span></div>
+      <div class="win-body text-center">
+        <div class="kiosk-card-icon">❌</div>
+        <h1 id="error-message" class="kiosk-giant-text mt-2">อ่านบัตรไม่สำเร็จ</h1>
+        <p class="badge-yellow mt-3" style="font-size:1.3rem;">กรุณาดึงบัตรออกแล้วเสียบใหม่อีกครั้ง</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ STATE 3: บัตรเลือกตั้ง ═══════════ -->
+  <section id="screen-ballot" class="kiosk-screen">
+    <div class="win-window kiosk-window ballot-window">
+      <div class="win-titlebar">
+        <span>BALLOT.EXE — บัตรเลือกตั้ง (ลงคะแนนแบบนิรนาม)</span>
+        <span class="win-buttons"><span>_</span><span>□</span><span>×</span></span>
+      </div>
+      <div class="win-body">
+        <div class="panel text-center ballot-header" style="background:#ffffcc;">
+          <h1 class="kiosk-title">ยินดีต้อนรับ</h1>
+          <p id="voter-name"></p>
+          <p class="ballot-hint">กรุณากดปุ่ม "ลงคะแนน" ใต้ผู้สมัครที่ท่านต้องการเลือก (เลือกได้ 1 หมายเลข)</p>
+        </div>
+        <div id="candidate-grid" class="candidate-grid mt-2">
+          <!-- รายชื่อผู้สมัครจะถูกเติมด้วย JavaScript -->
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ หน้าจอขอบคุณ ═══════════ -->
+  <section id="screen-thanks" class="kiosk-screen screen-thanks">
+    <div class="win-window kiosk-window">
+      <div class="win-titlebar"><span>บันทึกคะแนนสำเร็จ</span></div>
+      <div class="win-body text-center">
+        <div class="kiosk-card-icon">✅</div>
+        <h1 class="kiosk-giant-text mt-2" style="color:#00aa00;">ขอบคุณ<br>ที่มาใช้สิทธิ์เลือกตั้ง!</h1>
+        <p class="badge-yellow mt-3" style="font-size:1.3rem;">ระบบบันทึกคะแนนของท่านแบบนิรนามเรียบร้อยแล้ว</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- แถบสถานะเครื่องอ่านบัตรด้านล่างจอ -->
+  <div class="reader-statusbar">
+    <span><span id="reader-led" class="status-led"></span>เครื่องอ่านบัตร: <span id="reader-name">กำลังค้นหา...</span></span>
+    <span><span id="server-led" class="status-led"></span>เซิร์ฟเวอร์: <span id="server-status">กำลังเชื่อมต่อ...</span></span>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/kiosk.js"></script>
+</body>
+</html>

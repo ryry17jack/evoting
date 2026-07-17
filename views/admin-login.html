@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>เข้าสู่ระบบผู้ดูแล | E-VOTING ADMIN</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="login-wrap">
+    <div class="win-window login-window">
+      <div class="win-titlebar">
+        <span>ADMIN_LOGIN.EXE</span>
+        <span class="win-buttons"><span>_</span><span>□</span><span>×</span></span>
+      </div>
+      <div class="win-body">
+        <div class="panel text-center" style="background:#ffffcc;">
+          <div style="font-size:3rem;">🔐</div>
+          <h1 style="font-size:1.5rem; letter-spacing:1px;">ระบบผู้ดูแลการเลือกตั้ง</h1>
+          <p style="font-weight:bold;">E-VOTING ADMINISTRATOR</p>
+        </div>
+
+        <div id="login-error" class="error-box mt-2" style="display:none;">
+          ⚠ ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง!
+        </div>
+
+        <form method="POST" action="/admin/login">
+          <label class="form-label" for="username">ชื่อผู้ใช้ (USERNAME):</label>
+          <input class="form-input" type="text" id="username" name="username" required autofocus autocomplete="username">
+
+          <label class="form-label" for="password">รหัสผ่าน (PASSWORD):</label>
+          <input class="form-input" type="password" id="password" name="password" required autocomplete="current-password">
+
+          <button type="submit" class="btn btn-blue mt-2" style="width:100%; font-size:1.3rem;">
+            ► เข้าสู่ระบบ
+          </button>
+        </form>
+
+        <p class="text-center mt-2" style="font-size:0.9rem; font-weight:bold;">
+          สำหรับเจ้าหน้าที่ที่ได้รับอนุญาตเท่านั้น
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // แสดงกล่องข้อผิดพลาดเมื่อ login ไม่ผ่าน (?error=1)
+    if (new URLSearchParams(location.search).get('error')) {
+      document.getElementById('login-error').style.display = 'block';
+    }
+  </script>
+</body>
+</html>
