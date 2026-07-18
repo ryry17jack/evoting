@@ -12,8 +12,55 @@ function escapeHtml(str) {
 }
 
 /* ------------------------------------------------------------------ */
-/*  ส่วนที่ 1: บันทึกกิจกรรมนักศึกษา                                      */
+/*  ส่วนที่ 1: บันทึกกิจกรรมนักศึกษา (แสดงผลด้วย DataTables)              */
+/*  ค้นหา / เรียงลำดับ / แบ่งหน้าได้ และคงสถานะไว้ระหว่างรีเฟรชทุก 3 วินาที */
 /* ------------------------------------------------------------------ */
+let logsTable = null;
+
+// แปลงวันที่รูปแบบ dd/mm/yyyy hh:mm:ss เป็นตัวเลขเพื่อให้ DataTables เรียงลำดับถูกต้อง
+function thaiDateSortKey(str) {
+  const m = String(str || '').match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2}):(\d{2})$/);
+  return m ? Number(`${m[3]}${m[2]}${m[1]}${m[4]}${m[5]}${m[6]}`) : 0;
+}
+
+function initLogsTable() {
+  logsTable = new DataTable('#logs-table', {
+    data: [],
+    columns: [
+      { data: 'seq', className: 'text-center', width: '70px' },
+      {
+        data: 'citizen_id',
+        width: '220px',
+        render: (d, type) =>
+          type === 'display'
+            ? `<span style="font-family:monospace; font-size:1.05rem; font-weight:bold;">${escapeHtml(d)}</span>`
+            : d,
+      },
+      { data: 'full_name', render: (d, type) => (type === 'display' ? escapeHtml(d) : d) },
+      {
+        data: 'voted_at',
+        width: '220px',
+        // เรียงตามเวลาจริง ไม่ใช่เรียงตามตัวอักษรของข้อความ
+        render: (d, type) => (type === 'sort' || type === 'type' ? thaiDateSortKey(d) : escapeHtml(d)),
+      },
+    ],
+    order: [[0, 'desc']],
+    pageLength: 25,
+    lengthMenu: [10, 25, 50, 100, 200],
+    language: {
+      search: 'ค้นหา:',
+      searchPlaceholder: 'ชื่อ หรือ เลขบัตร',
+      lengthMenu: 'แสดง _MENU_ รายการต่อหน้า',
+      info: 'แสดง _START_ ถึง _END_ จากทั้งหมด _TOTAL_ รายการ',
+      infoEmpty: 'ไม่มีรายการที่จะแสดง',
+      infoFiltered: '(กรองจากทั้งหมด _MAX_ รายการ)',
+      zeroRecords: '— ไม่พบรายการที่ค้นหา —',
+      emptyTable: '— ยังไม่มีผู้มาใช้สิทธิ์ —',
+      paginate: { first: '⏮ หน้าแรก', previous: '◄ ก่อนหน้า', next: 'ถัดไป ►', last: 'หน้าสุดท้าย ⏭' },
+    },
+  });
+}
+
 async function loadLogs() {
   const res = await fetch('/admin/api/logs');
   if (res.status === 401) return (location.href = '/admin/login');
@@ -23,23 +70,13 @@ async function loadLogs() {
   document.getElementById('stat-total-voters').textContent = data.total.toLocaleString('th-TH');
   document.getElementById('logs-total-badge').textContent = `รวม ${data.total.toLocaleString('th-TH')} คน`;
 
-  const tbody = document.getElementById('logs-table-body');
-  if (data.logs.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="4" class="text-center">— ยังไม่มีผู้มาใช้สิทธิ์ —</td></tr>';
-    return;
-  }
+  if (!logsTable) initLogsTable();
 
-  tbody.innerHTML = data.logs
-    .map(
-      (log, i) => `
-      <tr>
-        <td class="text-center">${data.total - i}</td>
-        <td style="font-family:monospace; font-size:1.05rem; font-weight:bold;">${escapeHtml(log.citizen_id)}</td>
-        <td>${escapeHtml(log.full_name)}</td>
-        <td>${escapeHtml(log.voted_at)}</td>
-      </tr>`
-    )
-    .join('');
+  // ใส่ลำดับให้แถวตามที่เซิร์ฟเวอร์เรียงมา (ใหม่สุดได้เลขมากสุด)
+  const rows = data.logs.map((log, i) => Object.assign({ seq: data.total - i }, log));
+
+  // draw(false) = คงหน้าที่เปิดอยู่และคำค้นหาเดิมไว้ ไม่กระโดดกลับหน้าแรก
+  logsTable.clear().rows.add(rows).draw(false);
 }
 
 /* ------------------------------------------------------------------ */
@@ -337,6 +374,176 @@ clearBtn.addEventListener('click', async () => {
 });
 
 /* ------------------------------------------------------------------ */
+/*  ส่วนที่ 5: ตรวจสอบทรัพยากรที่ระบบต้องใช้                              */
+/*  เครื่องอ่านบัตร / ไลบรารีระบบปฏิบัติการ / เซิร์ฟเวอร์ ตรวจที่ฝั่งเซิร์ฟเวอร์ */
+/*  ส่วนเบราว์เซอร์ตรวจจากหน้าเว็บนี้โดยตรง                                */
+/* ------------------------------------------------------------------ */
+const SYSCHECK_GROUPS = {
+  reader: '💳 เครื่องอ่านบัตรประชาชน (CARD READER)',
+  os: '🪟 ไลบรารีและทรัพยากรของระบบปฏิบัติการ (OS LIBRARIES)',
+  server: '⚙ เซิร์ฟเวอร์และฐานข้อมูล (SERVER & DATABASE)',
+  browser: '🌐 เบราว์เซอร์ที่ใช้งานอยู่ (BROWSER COMPATIBILITY)',
+};
+
+const SYSCHECK_STATUS = {
+  ok: { label: '✔ ผ่าน', cls: 'sc-ok' },
+  warn: { label: '⚠ ควรตรวจสอบ', cls: 'sc-warn' },
+  fail: { label: '✖ ไม่ผ่าน', cls: 'sc-fail' },
+};
+
+// เบราว์เซอร์ขั้นต่ำที่ระบบรองรับ (เวอร์ชันหลัก)
+const BROWSER_MIN_VERSION = { Chrome: 90, Edge: 90, Firefox: 90, Safari: 15, Opera: 76 };
+
+function detectBrowser() {
+  const ua = navigator.userAgent;
+  const pick = (re) => {
+    const m = ua.match(re);
+    return m ? parseInt(m[1], 10) : null;
+  };
+
+  if (/Edg\//.test(ua)) return { name: 'Edge', version: pick(/Edg\/(\d+)/) };
+  if (/OPR\//.test(ua)) return { name: 'Opera', version: pick(/OPR\/(\d+)/) };
+  if (/Firefox\//.test(ua)) return { name: 'Firefox', version: pick(/Firefox\/(\d+)/) };
+  if (/Chrome\//.test(ua)) return { name: 'Chrome', version: pick(/Chrome\/(\d+)/) };
+  if (/Safari\//.test(ua) && /Version\//.test(ua)) return { name: 'Safari', version: pick(/Version\/(\d+)/) };
+  if (/MSIE |Trident\//.test(ua)) return { name: 'Internet Explorer', version: pick(/(?:MSIE |rv:)(\d+)/) };
+  return { name: 'ไม่ทราบชนิดเบราว์เซอร์', version: null };
+}
+
+// ตรวจความสามารถของเบราว์เซอร์ที่ระบบจำเป็นต้องใช้ (คืนอาร์เรย์รูปแบบเดียวกับฝั่งเซิร์ฟเวอร์)
+function browserChecks() {
+  const checks = [];
+  const add = (name, status, value, hint) => checks.push({ group: 'browser', name, status, value, hint: hint || null });
+
+  const b = detectBrowser();
+  const min = BROWSER_MIN_VERSION[b.name];
+  const versionText = b.version ? `เวอร์ชัน ${b.version}` : 'ไม่ทราบเวอร์ชัน';
+
+  if (b.name === 'Internet Explorer') {
+    add('ชนิดและเวอร์ชันเบราว์เซอร์', 'fail', `${b.name} ${versionText}`,
+      'Internet Explorer ใช้กับระบบนี้ไม่ได้ — กรุณาใช้ Google Chrome หรือ Microsoft Edge');
+  } else if (min && b.version && b.version >= min) {
+    add('ชนิดและเวอร์ชันเบราว์เซอร์', 'ok', `${b.name} ${versionText} (รองรับตั้งแต่ ${min} ขึ้นไป)`);
+  } else if (min && b.version) {
+    add('ชนิดและเวอร์ชันเบราว์เซอร์', 'fail', `${b.name} ${versionText} — เก่ากว่าที่รองรับ`,
+      `กรุณาอัปเดต ${b.name} เป็นเวอร์ชัน ${min} ขึ้นไป`);
+  } else {
+    add('ชนิดและเวอร์ชันเบราว์เซอร์', 'warn', `${b.name} ${versionText}`,
+      'ระบบทดสอบกับ Chrome / Edge / Firefox / Safari รุ่นใหม่ — เบราว์เซอร์อื่นอาจแสดงผลไม่ครบ');
+  }
+
+  const features = [
+    ['WebSocket (แจ้งเตือนสดจากเครื่องอ่านบัตร)', typeof WebSocket !== 'undefined', 'จำเป็นสำหรับส่งสถานะบัตรมายังหน้าคูหาแบบเรียลไทม์'],
+    ['Fetch API (เรียกข้อมูลจากเซิร์ฟเวอร์)', typeof fetch === 'function', 'จำเป็นสำหรับโหลดผลคะแนนและรายชื่อผู้สมัคร'],
+    ['Promise / async-await (JavaScript รุ่นใหม่)', typeof Promise === 'function', 'เบราว์เซอร์เก่าเกินไปสำหรับระบบนี้'],
+    ['CSS Grid (การจัดวางหน้าจอ)', typeof CSS !== 'undefined' && CSS.supports && CSS.supports('display', 'grid'), 'หน้าจออาจแสดงผลผิดตำแหน่ง'],
+    ['FileReader / Object URL (แสดงตัวอย่างรูปผู้สมัคร)', typeof FileReader === 'function' && typeof URL.createObjectURL === 'function', 'จะเลือกรูปผู้สมัครแล้วดูตัวอย่างไม่ได้'],
+    ['Fullscreen API (โหมดคูหาเต็มจอ)', Boolean(document.documentElement.requestFullscreen), 'จะกดเต็มจอที่หน้าคูหาไม่ได้ (ใช้ปุ่ม F11 แทนได้)'],
+  ];
+  for (const [name, supported, hint] of features) {
+    add(name, supported ? 'ok' : 'fail', supported ? 'รองรับ' : 'ไม่รองรับ', supported ? null : hint);
+  }
+
+  let storageOk = false;
+  try {
+    localStorage.setItem('__syscheck__', '1');
+    localStorage.removeItem('__syscheck__');
+    storageOk = true;
+  } catch (e) {
+    storageOk = false;
+  }
+  add('Local Storage (จำการตั้งค่าหน้าจอ)', storageOk ? 'ok' : 'warn',
+    storageOk ? 'ใช้งานได้' : 'ถูกปิดกั้น',
+    storageOk ? null : 'เบราว์เซอร์ปิดการเก็บข้อมูลในเครื่อง หรือกำลังใช้โหมดไม่ระบุตัวตน');
+
+  const w = window.screen.width;
+  const h = window.screen.height;
+  const resOk = w >= 1024 && h >= 768;
+  add('ความละเอียดหน้าจอ', resOk ? 'ok' : 'warn', `${w} × ${h} พิกเซล`,
+    resOk ? null : 'แนะนำอย่างน้อย 1024 × 768 พิกเซลสำหรับหน้าคูหาลงคะแนน');
+
+  add('การเชื่อมต่อกับเซิร์ฟเวอร์', navigator.onLine ? 'ok' : 'warn',
+    navigator.onLine ? `ออนไลน์ — ${location.origin}` : 'เบราว์เซอร์รายงานว่าออฟไลน์');
+
+  return checks;
+}
+
+function renderSystemCheck(checks) {
+  const container = document.getElementById('syscheck-groups');
+  const summaryEl = document.getElementById('syscheck-summary');
+
+  const count = { ok: 0, warn: 0, fail: 0 };
+  checks.forEach((c) => { count[c.status] = (count[c.status] || 0) + 1; });
+
+  const verdict =
+    count.fail > 0
+      ? { text: '✖ ระบบยังไม่พร้อมใช้งาน — มีรายการที่ไม่ผ่าน', cls: 'sc-fail' }
+      : count.warn > 0
+      ? { text: '⚠ ระบบใช้งานได้ แต่มีรายการที่ควรตรวจสอบ', cls: 'sc-warn' }
+      : { text: '✔ ระบบพร้อมใช้งานครบทุกรายการ', cls: 'sc-ok' };
+
+  summaryEl.innerHTML = `
+    <div class="syscheck-verdict ${verdict.cls}">${verdict.text}</div>
+    <div class="syscheck-counts">
+      <span class="sc-badge sc-ok">ผ่าน ${count.ok}</span>
+      <span class="sc-badge sc-warn">ควรตรวจสอบ ${count.warn}</span>
+      <span class="sc-badge sc-fail">ไม่ผ่าน ${count.fail}</span>
+    </div>`;
+
+  container.innerHTML = Object.keys(SYSCHECK_GROUPS)
+    .map((key) => {
+      const items = checks.filter((c) => c.group === key);
+      if (items.length === 0) return '';
+
+      const rows = items
+        .map((c) => {
+          const st = SYSCHECK_STATUS[c.status] || SYSCHECK_STATUS.warn;
+          return `
+          <tr>
+            <td style="width:150px;" class="text-center"><span class="sc-badge ${st.cls}">${st.label}</span></td>
+            <td style="font-weight:bold; width:32%;">${escapeHtml(c.name)}</td>
+            <td>${escapeHtml(c.value)}${
+              c.hint ? `<br><small style="font-weight:bold; color:#0000aa;">↳ ${escapeHtml(c.hint)}</small>` : ''
+            }</td>
+          </tr>`;
+        })
+        .join('');
+
+      return `
+      <div class="syscheck-group">
+        <div class="syscheck-group-title">${SYSCHECK_GROUPS[key]}</div>
+        <table class="retro-table"><tbody>${rows}</tbody></table>
+      </div>`;
+    })
+    .join('');
+}
+
+async function loadSystemCheck() {
+  const btn = document.getElementById('btn-system-check');
+  btn.disabled = true;
+  try {
+    const res = await fetch('/admin/api/system-check');
+    if (res.status === 401) return (location.href = '/admin/login');
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'ตรวจสอบระบบไม่สำเร็จ');
+
+    renderSystemCheck(data.checks.concat(browserChecks()));
+    document.getElementById('syscheck-updated').textContent = `ตรวจสอบเมื่อ: ${data.generatedAt}`;
+  } catch (e) {
+    // เซิร์ฟเวอร์ตอบไม่ได้ ก็ยังแสดงผลตรวจฝั่งเบราว์เซอร์ให้เห็นได้
+    renderSystemCheck(
+      [{ group: 'server', name: 'การตรวจสอบฝั่งเซิร์ฟเวอร์', status: 'fail', value: e.message, hint: 'ตรวจสอบว่าเซิร์ฟเวอร์ Node.js ยังทำงานอยู่' }]
+        .concat(browserChecks())
+    );
+    document.getElementById('syscheck-updated').textContent = '';
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+document.getElementById('btn-system-check').addEventListener('click', loadSystemCheck);
+
+/* ------------------------------------------------------------------ */
 /*  รีเฟรชอัตโนมัติทุก 3 วินาที                                          */
 /* ------------------------------------------------------------------ */
 async function refreshAll() {
@@ -350,3 +557,6 @@ async function refreshAll() {
 
 refreshAll();
 setInterval(refreshAll, 3000);
+
+// ตรวจทรัพยากรระบบครั้งแรกตอนเปิดหน้า (หลังจากนั้นกดปุ่มตรวจซ้ำเอง — ไม่รีเฟรชอัตโนมัติ)
+loadSystemCheck();

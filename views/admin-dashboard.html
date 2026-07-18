@@ -4,6 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>แดชบอร์ดผู้ดูแล | E-VOTING ADMIN</title>
+  <!-- DataTables (เก็บไฟล์ไว้ในเครื่อง — ใช้งานได้แม้ไม่มีอินเทอร์เน็ต) -->
+  <link rel="stylesheet" href="/vendor/datatables/dataTables.dataTables.min.css">
   <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
@@ -124,25 +126,41 @@
         <span id="logs-total-badge" class="badge-yellow" style="border-color:#fff;">รวม 0 คน</span>
       </div>
       <div class="panel" style="border-top:none;">
-        <div class="table-scroll">
-          <table class="retro-table">
-            <thead>
-              <tr>
-                <th style="width:70px;">ลำดับ</th>
-                <th style="width:220px;">เลขบัตรประชาชน</th>
-                <th>ชื่อ-นามสกุล</th>
-                <th style="width:220px;">เวลาที่ลงคะแนน</th>
-              </tr>
-            </thead>
-            <tbody id="logs-table-body">
-              <tr><td colspan="4" class="text-center">กำลังโหลดข้อมูล...</td></tr>
-            </tbody>
-          </table>
-        </div>
+        <table id="logs-table" class="retro-table" style="width:100%;">
+          <thead>
+            <tr>
+              <th style="width:70px;">ลำดับ</th>
+              <th style="width:220px;">เลขบัตรประชาชน</th>
+              <th>ชื่อ-นามสกุล</th>
+              <th style="width:220px;">เวลาที่ลงคะแนน</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
       </div>
     </div>
 
-    <!-- ═══════════ ส่วนที่ 4: ล้างข้อมูล (DANGER ZONE) ═══════════ -->
+    <!-- ═══════════ ส่วนที่ 4: ตรวจสอบทรัพยากรระบบ ═══════════ -->
+    <div class="mt-3">
+      <div class="section-title">
+        <span>🖥 ตรวจสอบทรัพยากรที่ระบบต้องใช้ (SYSTEM REQUIREMENTS CHECK)</span>
+        <button id="btn-system-check" class="btn btn-yellow" style="font-size:1rem; padding:8px 20px;">🔄 ตรวจสอบอีกครั้ง</button>
+      </div>
+      <div class="panel" style="border-top:none;">
+        <p style="font-weight:bold; margin-bottom:14px;">
+          ตรวจความพร้อมของเครื่องอ่านบัตร ไลบรารีของระบบปฏิบัติการ เซิร์ฟเวอร์/ฐานข้อมูล
+          และความเข้ากันได้ของเบราว์เซอร์ที่กำลังเปิดหน้านี้อยู่
+        </p>
+
+        <div id="syscheck-summary" class="syscheck-summary"></div>
+        <div id="syscheck-groups">
+          <p class="text-center" style="font-weight:bold;">กำลังตรวจสอบระบบ...</p>
+        </div>
+        <p id="syscheck-updated" style="margin-top:12px; font-size:0.9rem; font-weight:bold;"></p>
+      </div>
+    </div>
+
+    <!-- ═══════════ ส่วนที่ 5: ล้างข้อมูล (DANGER ZONE) ═══════════ -->
     <div class="mt-3">
       <div class="section-title section-danger">
         <span>🧹 ล้างข้อมูลสำหรับการเลือกตั้งครั้งใหม่ (CLEAR ELECTION DATA)</span>
@@ -178,11 +196,13 @@
     </div>
 
     <footer class="credit-footer mt-3">
-      Copyright 2026 &copy; - พัฒนาโดย: นายวัชรินทร์ ผ่องสุวรรณ | งานศูนย์ดิจิทัลและสื่อสารองค์กร ฝ่ายยุทธศาสตร์และแผนงาน วิทยาลัยเทคนิคสงขลา
+      Copyright 2026 &copy; - พัฒนาโดย: นายวัชรินทร์ ผ่องสุวรรณ | งานศูนย์ดิจิทัลและสื่อสารองค์กร วิทยาลัยเทคนิคสงขลา
     </footer>
 
   </div>
 
+  <script src="/vendor/datatables/jquery.min.js"></script>
+  <script src="/vendor/datatables/dataTables.min.js"></script>
   <script src="/js/admin-dashboard.js"></script>
 </body>
 </html>

@@ -9,7 +9,9 @@
 
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const crypto = require('crypto');
+const { exec } = require('child_process');
 const express = require('express');
 const multer = require('multer');
 const session = require('express-session');
@@ -256,11 +258,22 @@ const APDU = {
   FULLNAME_TH: [0x80, 0xb0, 0x00, 0x11, 0x02, 0x00, 0x64],
 };
 
+/* สถานะล่าสุดของระบบอ่านบัตร — ใช้แสดงในหน้าตรวจสอบทรัพยากรระบบ */
+const cardReaderState = {
+  moduleLoaded: false,   // โหลดไลบรารี @pokusew/pcsclite ได้หรือไม่
+  moduleError: null,     // สาเหตุที่โหลดไม่ได้
+  pcscError: null,       // ข้อผิดพลาดล่าสุดจากบริการ PC/SC
+  readers: [],           // ชื่อเครื่องอ่านบัตรที่เชื่อมต่ออยู่ขณะนี้
+  lastCardReadAt: null,  // เวลาที่อ่านบัตรสำเร็จครั้งล่าสุด
+};
+
 function initSmartCardReader() {
   let pcsclite;
   try {
     pcsclite = require('@pokusew/pcsclite');
+    cardReaderState.moduleLoaded = true;
   } catch (e) {
+    cardReaderState.moduleError = e.message;
     console.warn('──────────────────────────────────────────────────────');
     console.warn('[CARD] ไม่พบไลบรารี @pokusew/pcsclite — ระบบทำงานต่อได้');
     console.warn('       แต่จะอ่านบัตรจริงไม่ได้ (ใช้ DEMO_MODE=1 เพื่อทดสอบ)');
@@ -272,6 +285,7 @@ function initSmartCardReader() {
 
   pcsc.on('reader', (reader) => {
     console.log(`[CARD] พบเครื่องอ่านบัตร: ${reader.name}`);
+    if (!cardReaderState.readers.includes(reader.name)) cardReaderState.readers.push(reader.name);
     io.emit('reader-status', { connected: true, name: reader.name });
 
     reader.on('status', (status) => {
@@ -296,12 +310,14 @@ function initSmartCardReader() {
     reader.on('error', (err) => console.error(`[CARD] reader error: ${err.message}`));
     reader.on('end', () => {
       console.log('[CARD] เครื่องอ่านบัตรถูกถอดออก');
+      cardReaderState.readers = cardReaderState.readers.filter((n) => n !== reader.name);
       io.emit('reader-status', { connected: false });
     });
   });
 
   pcsc.on('error', (err) => {
     console.error(`[CARD] PC/SC error: ${err.message}`);
+    cardReaderState.pcscError = err.message;
     io.emit('reader-status', { connected: false });
   });
 }
@@ -358,6 +374,7 @@ async function readThaiIdCard(reader, atr) {
       }
 
       console.log(`[CARD] อ่านบัตรสำเร็จ: ${citizenId.substring(0, 4)}********* ${fullName}`);
+      cardReaderState.lastCardReadAt = new Date().toISOString();
       await processVoter(citizenId, fullName);
     } catch (e) {
       console.error('[CARD] อ่านข้อมูลบัตรผิดพลาด:', e.message);
@@ -510,6 +527,170 @@ app.get('/admin/api/results', requireAdminApi, async (req, res) => {
     res.json({ totalVotes, results: rows });
   } catch (e) {
     res.status(500).json({ error: 'database error' });
+  }
+});
+
+/* ------------------------------------------------------------------ */
+/*  ตรวจสอบทรัพยากรที่ระบบต้องใช้ (System Requirements Check)            */
+/*  - เครื่องอ่านบัตร / ไลบรารีของระบบปฏิบัติการ / เซิร์ฟเวอร์+ฐานข้อมูล    */
+/*  (ส่วนความเข้ากันได้ของเบราว์เซอร์ตรวจฝั่งหน้าเว็บ)                     */
+/* ------------------------------------------------------------------ */
+
+// รันคำสั่งของระบบปฏิบัติการแบบไม่โยน error — คืน stdout หรือ null เมื่อล้มเหลว
+function execSafe(cmd, timeout = 5000) {
+  return new Promise((resolve) => {
+    exec(cmd, { timeout, windowsHide: true }, (err, stdout) => resolve(err ? null : String(stdout)));
+  });
+}
+
+// ตรวจว่ามีโมดูล npm ตัวนี้ติดตั้งอยู่หรือไม่ พร้อมอ่านเลขเวอร์ชัน
+function inspectModule(name) {
+  try {
+    const pkgPath = require.resolve(`${name}/package.json`, { paths: [__dirname] });
+    return { installed: true, version: JSON.parse(fs.readFileSync(pkgPath, 'utf8')).version };
+  } catch (e) {
+    // บางโมดูลไม่ยอมให้เข้าถึง package.json ตรง ๆ (exports) — ลอง resolve ตัวโมดูลแทน
+    try {
+      require.resolve(name, { paths: [__dirname] });
+      return { installed: true, version: null };
+    } catch (e2) {
+      return { installed: false, version: null };
+    }
+  }
+}
+
+// ไลบรารี PC/SC ของระบบปฏิบัติการที่ @pokusew/pcsclite เรียกใช้
+function pcscLibraryInfo() {
+  if (process.platform === 'win32') {
+    const dll = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'winscard.dll');
+    return { label: 'winscard.dll (Windows Smart Card API)', path: dll, found: fs.existsSync(dll) };
+  }
+  if (process.platform === 'darwin') {
+    const fw = '/System/Library/Frameworks/PCSC.framework';
+    return { label: 'PCSC.framework (macOS)', path: fw, found: fs.existsSync(fw) };
+  }
+  const candidates = [
+    '/usr/lib/x86_64-linux-gnu/libpcsclite.so.1',
+    '/usr/lib/aarch64-linux-gnu/libpcsclite.so.1',
+    '/usr/lib/libpcsclite.so.1',
+    '/lib/x86_64-linux-gnu/libpcsclite.so.1',
+    '/usr/lib64/libpcsclite.so.1',
+  ];
+  const hit = candidates.find((p) => fs.existsSync(p));
+  return { label: 'libpcsclite.so.1 (PC/SC Lite)', path: hit || candidates[0], found: Boolean(hit) };
+}
+
+// สถานะบริการ PC/SC ของระบบปฏิบัติการ
+async function pcscServiceStatus() {
+  if (process.platform === 'win32') {
+    const out = await execSafe('sc query SCardSvr');
+    if (out === null) return { label: 'บริการ Smart Card (SCardSvr)', state: 'ตรวจสอบไม่ได้', running: null };
+    if (/RUNNING/i.test(out)) return { label: 'บริการ Smart Card (SCardSvr)', state: 'กำลังทำงาน (RUNNING)', running: true };
+    if (/STOPPED/i.test(out)) return { label: 'บริการ Smart Card (SCardSvr)', state: 'หยุดทำงาน (STOPPED)', running: false };
+    return { label: 'บริการ Smart Card (SCardSvr)', state: 'ไม่ทราบสถานะ', running: null };
+  }
+  if (process.platform === 'darwin') {
+    return { label: 'บริการ PC/SC (com.apple.ifdreader)', state: 'มาพร้อมระบบปฏิบัติการ', running: true };
+  }
+  const out = await execSafe('systemctl is-active pcscd');
+  if (out === null) return { label: 'บริการ PC/SC (pcscd)', state: 'ไม่ทำงาน หรือตรวจสอบไม่ได้', running: false };
+  const state = out.trim();
+  return { label: 'บริการ PC/SC (pcscd)', state, running: state === 'active' };
+}
+
+app.get('/admin/api/system-check', requireAdminApi, async (req, res) => {
+  try {
+    const checks = [];
+    const add = (group, name, status, value, hint) => checks.push({ group, name, status, value, hint: hint || null });
+
+    /* ---------- กลุ่มที่ 1: เครื่องอ่านบัตรประชาชน ---------- */
+    if (cardReaderState.moduleLoaded) {
+      const mod = inspectModule('@pokusew/pcsclite');
+      add('reader', 'ไลบรารีอ่านบัตร @pokusew/pcsclite', 'ok',
+        `ติดตั้งแล้ว${mod.version ? ` (v${mod.version})` : ''}`);
+    } else {
+      add('reader', 'ไลบรารีอ่านบัตร @pokusew/pcsclite',
+        CONFIG.DEMO_MODE ? 'warn' : 'fail',
+        'ไม่พบไลบรารี',
+        CONFIG.DEMO_MODE
+          ? 'ขณะนี้เปิด DEMO_MODE อยู่ จึงยังทดสอบระบบได้ แต่อ่านบัตรจริงไม่ได้'
+          : 'ติดตั้งด้วยคำสั่ง: npm install @pokusew/pcsclite (ต้องมีเครื่องมือคอมไพล์ของระบบ)');
+    }
+
+    const readerCount = cardReaderState.readers.length;
+    add('reader', 'เครื่องอ่านบัตร USB ที่เชื่อมต่ออยู่',
+      readerCount > 0 ? 'ok' : 'warn',
+      readerCount > 0 ? cardReaderState.readers.join(', ') : 'ไม่พบเครื่องอ่านบัตร',
+      readerCount > 0 ? null : 'เสียบเครื่องอ่านบัตรเข้าพอร์ต USB แล้วกดตรวจสอบอีกครั้ง');
+
+    add('reader', 'อ่านบัตรสำเร็จครั้งล่าสุด',
+      cardReaderState.lastCardReadAt ? 'ok' : 'warn',
+      cardReaderState.lastCardReadAt
+        ? new Date(cardReaderState.lastCardReadAt).toLocaleString('th-TH')
+        : 'ยังไม่เคยอ่านบัตรตั้งแต่เปิดเซิร์ฟเวอร์',
+      cardReaderState.lastCardReadAt ? null : 'ทดลองเสียบบัตรประชาชนที่หน้าคูหาเพื่อยืนยันการทำงาน');
+
+    if (cardReaderState.pcscError) {
+      add('reader', 'ข้อผิดพลาดล่าสุดของ PC/SC', 'fail', cardReaderState.pcscError);
+    }
+
+    add('reader', 'โหมดจำลองบัตร (DEMO_MODE)',
+      CONFIG.DEMO_MODE ? 'warn' : 'ok',
+      CONFIG.DEMO_MODE ? 'เปิดใช้งาน — ใช้สำหรับทดสอบเท่านั้น' : 'ปิด (โหมดใช้งานจริง)',
+      CONFIG.DEMO_MODE ? 'ก่อนใช้งานเลือกตั้งจริง ให้ตั้งค่า DEMO_MODE=0 ในไฟล์ .env' : null);
+
+    /* ---------- กลุ่มที่ 2: ไลบรารีของระบบปฏิบัติการ ---------- */
+    const lib = pcscLibraryInfo();
+    add('os', lib.label, lib.found ? 'ok' : 'fail',
+      lib.found ? `พบที่ ${lib.path}` : `ไม่พบที่ ${lib.path}`,
+      lib.found ? null : 'ระบบปฏิบัติการนี้ยังไม่มีไลบรารี PC/SC — ติดตั้งไดรเวอร์เครื่องอ่านบัตรก่อน');
+
+    const svc = await pcscServiceStatus();
+    add('os', svc.label, svc.running === true ? 'ok' : svc.running === false ? 'fail' : 'warn',
+      svc.state,
+      svc.running === true ? null : 'เปิดบริการ Smart Card ของระบบปฏิบัติการก่อนใช้งานเครื่องอ่านบัตร');
+
+    add('os', 'ระบบปฏิบัติการ', 'ok', `${os.type()} ${os.release()} (${process.arch})`);
+    add('os', 'หน่วยประมวลผล (CPU)', 'ok',
+      `${(os.cpus()[0] || {}).model || 'ไม่ทราบรุ่น'} — ${os.cpus().length} คอร์`);
+
+    const totalMemGb = os.totalmem() / 1024 ** 3;
+    const freeMemGb = os.freemem() / 1024 ** 3;
+    add('os', 'หน่วยความจำ (RAM)',
+      totalMemGb >= 2 ? 'ok' : 'warn',
+      `ทั้งหมด ${totalMemGb.toFixed(1)} GB — ว่าง ${freeMemGb.toFixed(1)} GB`,
+      totalMemGb >= 2 ? null : 'แนะนำอย่างน้อย 2 GB สำหรับเครื่องคูหา');
+
+    /* ---------- กลุ่มที่ 3: เซิร์ฟเวอร์และฐานข้อมูล ---------- */
+    const nodeMajor = parseInt(process.versions.node.split('.')[0], 10);
+    add('server', 'Node.js', nodeMajor >= 18 ? 'ok' : 'fail',
+      `v${process.versions.node}`,
+      nodeMajor >= 18 ? null : 'ระบบต้องใช้ Node.js เวอร์ชัน 18 ขึ้นไป');
+
+    try {
+      const [[row]] = await pool.query('SELECT VERSION() AS v');
+      add('server', 'ฐานข้อมูล MySQL / MariaDB', 'ok', `เชื่อมต่อได้ — v${row.v} (${CONFIG.DB_NAME})`);
+    } catch (e) {
+      add('server', 'ฐานข้อมูล MySQL / MariaDB', 'fail', `เชื่อมต่อไม่ได้ — ${e.message}`,
+        'เปิด MySQL ใน XAMPP แล้วตรวจค่า DB_HOST / DB_USER / DB_PASS ในไฟล์ .env');
+    }
+
+    for (const name of ['express', 'socket.io', 'mysql2', 'multer', 'bcryptjs', 'iconv-lite', 'express-session']) {
+      const mod = inspectModule(name);
+      add('server', `แพ็กเกจ ${name}`,
+        mod.installed ? 'ok' : 'fail',
+        mod.installed ? `ติดตั้งแล้ว${mod.version ? ` (v${mod.version})` : ''}` : 'ไม่พบ',
+        mod.installed ? null : 'รันคำสั่ง npm install เพื่อติดตั้งแพ็กเกจให้ครบ');
+    }
+
+    const upMin = Math.floor(process.uptime() / 60);
+    add('server', 'เซิร์ฟเวอร์ทำงานต่อเนื่อง', 'ok',
+      `${Math.floor(upMin / 60)} ชั่วโมง ${upMin % 60} นาที (พอร์ต ${CONFIG.PORT})`);
+
+    res.json({ ok: true, generatedAt: new Date().toLocaleString('th-TH'), checks });
+  } catch (e) {
+    console.error('[ADMIN] ตรวจสอบทรัพยากรระบบไม่สำเร็จ:', e.message);
+    res.status(500).json({ ok: false, error: 'ตรวจสอบทรัพยากรระบบไม่สำเร็จ' });
   }
 });
 

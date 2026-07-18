@@ -548,14 +548,188 @@ body {
   padding: 10px 0;
 }
 
-.table-scroll {
-  max-height: 480px;
-  overflow-y: auto;
-  border: 3px solid var(--retro-black);
+/* ---------- DataTables ในธีมเรโทร ---------- */
+/* ปรับหน้าตาของ DataTables ให้เข้ากับธีม Windows 95 (มุมฉาก เส้นดำหนา) */
+div.dt-container {
+  font-family: inherit;
+  font-size: 1rem;
+  color: var(--retro-black);
 }
 
-.table-scroll .retro-table {
-  border: none;
+div.dt-container .dt-layout-row {
+  margin-bottom: 12px;
+  align-items: center;
+}
+
+div.dt-container .dt-layout-row:last-child {
+  margin-top: 12px;
+  margin-bottom: 0;
+}
+
+div.dt-container .dt-search,
+div.dt-container .dt-length,
+div.dt-container .dt-info {
+  font-weight: bold;
+}
+
+div.dt-container .dt-input,
+div.dt-container select.dt-input {
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: bold;
+  padding: 8px 10px;
+  border: 3px solid var(--retro-black);
+  background: var(--retro-white);
+  color: var(--retro-black);
+  margin: 0 6px;
+}
+
+div.dt-container .dt-search input {
+  min-width: 240px;
+}
+
+div.dt-container .dt-input:focus {
+  outline: none;
+  background: var(--retro-yellow);
+}
+
+div.dt-container .dt-info {
+  background: var(--retro-yellow);
+  border: 3px solid var(--retro-black);
+  padding: 6px 14px;
+  display: inline-block;
+}
+
+/* ปุ่มแบ่งหน้า — ใช้หน้าตาเดียวกับปุ่มเรโทรของระบบ */
+div.dt-container .dt-paging .dt-paging-button {
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: bold;
+  padding: 8px 14px;
+  margin: 0 4px 0 0;
+  border: 3px solid var(--retro-black) !important;
+  background: var(--retro-gray) !important;
+  color: var(--retro-black) !important;
+  box-shadow: 4px 4px 0 var(--retro-black);
+  cursor: pointer;
+  min-width: 0;
+}
+
+div.dt-container .dt-paging .dt-paging-button:hover:not(.disabled) {
+  background: var(--retro-yellow) !important;
+}
+
+div.dt-container .dt-paging .dt-paging-button.current {
+  background: var(--retro-blue) !important;
+  color: var(--retro-white) !important;
+}
+
+div.dt-container .dt-paging .dt-paging-button:active:not(.disabled) {
+  transform: translate(4px, 4px);
+  box-shadow: none;
+}
+
+div.dt-container .dt-paging .dt-paging-button.disabled {
+  opacity: 0.45;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+/* คงเส้นขอบดำหนาของตารางเรโทรไว้ ไม่ให้ CSS ของ DataTables มาทับ */
+table.retro-table.dataTable {
+  border-collapse: collapse !important;
+  border: 3px solid var(--retro-black) !important;
+  margin: 0 !important;
+}
+
+table.retro-table.dataTable > thead > tr > th,
+table.retro-table.dataTable > thead > tr > td {
+  border: 3px solid var(--retro-black) !important;
+  background: var(--retro-blue);
+  color: var(--retro-white);
+}
+
+table.retro-table.dataTable > tbody > tr > td {
+  border: 3px solid var(--retro-black) !important;
+}
+
+table.retro-table.dataTable > tbody > tr {
+  background: var(--retro-white);
+}
+
+table.retro-table.dataTable > tbody > tr:nth-child(even) {
+  background: #e8e8e8;
+}
+
+table.retro-table.dataTable > tbody > tr.selected > * {
+  box-shadow: none;
+}
+
+/* หัวตารางที่กดเรียงลำดับได้ */
+table.retro-table.dataTable thead th.dt-orderable-asc:hover,
+table.retro-table.dataTable thead th.dt-orderable-desc:hover {
+  background: var(--retro-blue-bright);
+  outline: none;
+}
+
+table.retro-table.dataTable thead th .dt-column-order::before,
+table.retro-table.dataTable thead th .dt-column-order::after {
+  color: var(--retro-white);
+}
+
+/* ---------- ตรวจสอบทรัพยากรระบบ (System Requirements Check) ---------- */
+.syscheck-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.syscheck-verdict {
+  flex: 1 1 320px;
+  border: 3px solid var(--retro-black);
+  padding: 12px 16px;
+  font-weight: bold;
+  font-size: 1.1rem;
+  box-shadow: 5px 5px 0 var(--retro-black);
+}
+
+.syscheck-counts {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.sc-badge {
+  display: inline-block;
+  border: 3px solid var(--retro-black);
+  padding: 5px 12px;
+  font-weight: bold;
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+.sc-ok { background: var(--retro-green); color: var(--retro-white); }
+.sc-warn { background: var(--retro-yellow); color: var(--retro-black); }
+.sc-fail { background: var(--retro-red); color: var(--retro-white); }
+
+.syscheck-group {
+  margin-bottom: 20px;
+}
+
+.syscheck-group-title {
+  background: var(--retro-blue);
+  color: var(--retro-white);
+  border: 3px solid var(--retro-black);
+  border-bottom: none;
+  padding: 10px 16px;
+  font-weight: bold;
+  letter-spacing: 0.5px;
+}
+
+.syscheck-group .retro-table td {
+  vertical-align: top;
 }
 
 /* ---------- Login ---------- */
