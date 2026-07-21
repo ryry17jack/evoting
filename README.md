@@ -66,6 +66,48 @@ $env:DEMO_MODE = "1"; npm start
 > การคอมไพล์ต้องมี Visual Studio Build Tools พร้อม workload
 > **"Desktop development with C++"** (รวม MSVC toolset และ Windows SDK)
 
+## ติดตั้งด้วย Docker / Coolify (Deploy)
+
+รองรับการรันทั้งระบบ (แอป + MySQL) ด้วย Docker Compose — เหมาะสำหรับทดสอบบนเครื่อง
+หรือ deploy ขึ้นเซิร์ฟเวอร์ผ่าน **Coolify** โดยไม่ต้องติดตั้ง Node.js/MySQL เอง
+
+ไฟล์ที่เกี่ยวข้อง: `Dockerfile`, `docker-compose.yml`, `.dockerignore`, `.env.example`
+
+### ทดสอบบนเครื่อง (Local)
+
+```bash
+# 1) (ไม่บังคับ) คัดลอกไฟล์ตั้งค่า — ค่าเริ่มต้นใช้งานได้ทันที
+cp .env.example .env
+
+# 2) build + รันทั้ง stack (แอป + ฐานข้อมูล)
+docker compose up --build
+```
+
+จากนั้นเปิด http://localhost:3000/ (คูหา) และ http://localhost:3000/admin
+(`admin` / `password123`)
+
+- ฐานข้อมูล/ตาราง/ข้อมูลเริ่มต้นถูกสร้างอัตโนมัติเมื่อแอปสตาร์ต
+- ข้อมูล MySQL เก็บใน volume `db_data` และรูปผู้สมัครที่อัปโหลดเก็บใน volume
+  `uploads` — คงอยู่แม้ rebuild container
+- ปิดระบบด้วย `docker compose down` (ข้อมูลยังอยู่) หรือ
+  `docker compose down -v` เพื่อลบ volume ทั้งหมด
+
+### Deploy ด้วย Coolify
+
+1. สร้าง Resource ใหม่ → ชี้ไปที่ Git repo นี้ → เลือก build pack แบบ
+   **Docker Compose**
+2. ตั้งค่า Environment Variables ในหน้า Coolify อย่างน้อย:
+   **`DB_PASS`** และ **`SESSION_SECRET`** (สตริงสุ่มยาว ๆ) — คงค่า `DEMO_MODE=1`
+3. Coolify จะจัดการ public domain + HTTPS ให้อัตโนมัติ
+   (สามารถลบ `ports:` ใน `docker-compose.yml` ออกได้หากใช้ proxy ของ Coolify)
+
+> **หมายเหตุ:** ใน container จะ **ไม่มี** ไลบรารีอ่านบัตร (`@pokusew/pcsclite`)
+> เพราะเข้าถึงเครื่องอ่านบัตร USB ผ่าน Docker ไม่ได้ จึงต้องใช้ `DEMO_MODE=1`
+> (กด F2 จำลองบัตร) หากต้องอ่านบัตรจริง ให้ติดตั้งบนเครื่องจริงด้วย `install.sh` แทน
+>
+> **โปรดักชัน:** เปลี่ยนรหัสผ่าน `admin` และตั้ง `SESSION_SECRET` ที่สุ่มยาว
+> ก่อนใช้งานจริง (session ปัจจุบันเก็บใน memory — เหมาะกับ container เดียว)
+
 ## จัดการผู้สมัคร (Manage Candidates)
 
 ที่แดชบอร์ดผู้ดูแล ส่วน **"จัดการผู้สมัคร"** สามารถ:
@@ -86,6 +128,10 @@ e-voting/
 ├── package.json
 ├── server.js               # เว็บเซิร์ฟเวอร์ + Socket.io + อ่านบัตร + ตั้งค่า DB อัตโนมัติ
 ├── database.sql            # โครงสร้างฐานข้อมูล (สำหรับอ้างอิง)
+├── Dockerfile              # อิมเมจแอป Node.js (สำหรับ Docker/Coolify)
+├── docker-compose.yml      # รันแอป + MySQL พร้อมกัน
+├── .env.example            # ตัวอย่าง environment variables สำหรับ Docker
+├── install.sh              # สคริปต์ติดตั้งบนเครื่อง Linux จริง (มีเครื่องอ่านบัตร)
 ├── views/
 │   ├── kiosk.html          # หน้าคูหาลงคะแนน (State Machine 3 สถานะ)
 │   ├── admin-login.html    # หน้าเข้าสู่ระบบผู้ดูแล

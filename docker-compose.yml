@@ -1,0 +1,60 @@
+# ---------------------------------------------------------------------------
+# E-Voting Kiosk — Docker Compose stack (local testing + Coolify deployment)
+#
+# Services:
+#   db   — MySQL 8, stores votes/candidates/admins (schema auto-created by app)
+#   app  — the Node.js kiosk/admin server
+#
+# Local test:   docker compose up --build   ->  http://localhost:3000
+# Coolify:      point Coolify at this repo, choose "Docker Compose" build pack.
+#               Set the env vars below in the Coolify UI (especially DB_PASS
+#               and SESSION_SECRET). Coolify handles the public domain + HTTPS.
+# ---------------------------------------------------------------------------
+services:
+  db:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASS:-evoting_secret}
+      MYSQL_DATABASE: ${DB_NAME:-evoting_db}
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      # App waits for this to pass before starting (see depends_on below)
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p${DB_PASS:-evoting_secret}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PORT: 3000
+      DB_HOST: db
+      DB_USER: root
+      DB_PASS: ${DB_PASS:-evoting_secret}
+      DB_NAME: ${DB_NAME:-evoting_db}
+      # Keep sessions valid across restarts/replicas — set a long random string
+      SESSION_SECRET: ${SESSION_SECRET:-change-me-to-a-long-random-string}
+      # DEMO_MODE=1 enables F2 card simulation (no physical reader in a container)
+      DEMO_MODE: ${DEMO_MODE:-1}
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    volumes:
+      # Persist uploaded candidate photos across container rebuilds
+      - uploads:/app/public/img/uploads
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+volumes:
+  db_data:
+  uploads:

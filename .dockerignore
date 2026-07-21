@@ -1,0 +1,10 @@
+node_modules
+npm-debug.log
+.git
+.gitignore
+.gitattributes
+.env
+.claude
+*.md
+install.sh
+public/img/uploads/*
