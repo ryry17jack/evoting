@@ -188,4 +188,92 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
+/* ------------------------------------------------------------------ */
+/*  Local Card Agent Bridge (โหมด Cloud + Agent)                        */
+/*  เชื่อมต่อโปรแกรม card-agent ที่รันบนเครื่องคูหาเดียวกัน (localhost)      */
+/*  เมื่อเสียบบัตรจริง Agent จะอ่านข้อมูลแล้วส่งมาที่หน้านี้ จากนั้นหน้านี้     */
+/*  ส่งต่อให้เซิร์ฟเวอร์ (station-card) เพื่อตรวจสอบสิทธิ์ลงคะแนน            */
+/*  หมายเหตุ: ws://127.0.0.1 ถือเป็น "loopback" จึงเชื่อมต่อจากหน้า HTTPS   */
+/*  ได้ (ไม่ติด mixed-content)                                            */
+/* ------------------------------------------------------------------ */
+(function connectCardAgent() {
+  // พอร์ตของ Agent (แก้ได้ด้วย ?agent=port บน URL หรือ localStorage 'agentPort')
+  const params = new URLSearchParams(location.search);
+  const port = params.get('agent') || localStorage.getItem('agentPort') || '47458';
+  const AGENT_URL = `ws://127.0.0.1:${port}`;
+
+  const readerLed = document.getElementById('reader-led');
+  const readerName = document.getElementById('reader-name');
+  let ws = null;
+  let retryTimer = null;
+
+  function setReader(connected, name) {
+    if (!readerLed) return;
+    readerLed.classList.toggle('on', !!connected);
+    if (readerName) readerName.textContent = connected ? name || 'พร้อมใช้งาน' : 'ไม่พบเครื่องอ่านบัตร';
+  }
+
+  function scheduleRetry() {
+    clearTimeout(retryTimer);
+    retryTimer = setTimeout(open, 3000); // Agent อาจยังไม่เปิด — ลองใหม่เรื่อย ๆ
+  }
+
+  function open() {
+    try {
+      ws = new WebSocket(AGENT_URL);
+    } catch (e) {
+      scheduleRetry();
+      return;
+    }
+
+    ws.onopen = () => console.log('[AGENT] เชื่อมต่อ Local Card Agent แล้ว:', AGENT_URL);
+
+    ws.onmessage = (ev) => {
+      let msg;
+      try {
+        msg = JSON.parse(ev.data);
+      } catch (_) {
+        return;
+      }
+      switch (msg.type) {
+        case 'reader': // สถานะเครื่องอ่านบัตร
+          setReader(msg.connected, msg.name);
+          break;
+        case 'card-inserted': // เสียบบัตร → แสดงหน้ากำลังอ่าน
+          if (currentScreen === 'welcome') {
+            clearTimeout(resetTimer);
+            showScreen('reading');
+          }
+          break;
+        case 'card': // อ่านข้อมูลบัตรได้ → ส่งให้เซิร์ฟเวอร์ตรวจสอบสิทธิ์
+          socket.emit('station-card', {
+            citizenId: msg.citizenId,
+            fullName: msg.fullName,
+          });
+          break;
+        case 'card-removed':
+          if (currentScreen === 'reading' || currentScreen === 'warning' || currentScreen === 'error') {
+            resetToWelcome();
+          }
+          break;
+        case 'card-error':
+          showError((msg && msg.message) || 'อ่านบัตรไม่สำเร็จ');
+          break;
+      }
+    };
+
+    ws.onclose = () => {
+      setReader(false);
+      scheduleRetry();
+    };
+    ws.onerror = () => {
+      try {
+        ws.close();
+      } catch (_) {}
+    };
+  }
+
+  open();
+})();
+
 loadCandidates();

@@ -46,6 +46,10 @@ const CONFIG = {
   SESSION_SECRET: process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex'),
   // เปิดโหมดจำลองบัตร (สำหรับทดสอบโดยไม่มีเครื่องอ่านบัตร): set DEMO_MODE=1
   DEMO_MODE: process.env.DEMO_MODE === '1',
+  // โหมด Local Agent: อ่านบัตรจริงผ่านโปรแกรม card-agent บนเครื่องคูหา (ไม่ใช่บนเซิร์ฟเวอร์)
+  // ตั้ง AGENT_MODE=1 เมื่อโฮสต์บน Cloud/Coolify — หน้าตรวจสอบระบบจะไม่ถือว่าเซิร์ฟเวอร์
+  // ต้องมีเครื่องอ่านบัตร/ไลบรารี PC/SC ในตัว
+  AGENT_MODE: process.env.AGENT_MODE === '1',
 };
 
 let pool; // MySQL connection pool
@@ -212,7 +216,11 @@ setInterval(() => {
 /* ------------------------------------------------------------------ */
 /*  ขั้นตอนตรวจสอบผู้ลงคะแนน (e-KYC + กันลงคะแนนซ้ำ)                     */
 /* ------------------------------------------------------------------ */
-async function processVoter(citizenId, fullName) {
+// emitter = ปลายทางที่จะส่งผลลัพธ์กลับ:
+//   - io (ค่าเริ่มต้น) → กระจายให้ทุกหน้าจอ ใช้กับเครื่องอ่านบัตรฝั่งเซิร์ฟเวอร์ (bare-metal) และ DEMO_MODE
+//   - socket ของสถานีนั้น ๆ → ตอบเฉพาะเครื่องที่เสียบบัตร ใช้กับสถานีที่อ่านบัตรผ่าน Local Agent
+//     (จำเป็นเมื่อมีหลายเครื่องพร้อมกัน ไม่งั้นบัตรที่เครื่องหนึ่งจะปลดล็อกบัตรเลือกตั้งของทุกเครื่อง)
+async function processVoter(citizenId, fullName, emitter = io) {
   try {
     const [rows] = await pool.query(
       'SELECT id FROM activity_logs WHERE citizen_id = ?',
@@ -221,7 +229,7 @@ async function processVoter(citizenId, fullName) {
 
     if (rows.length > 0) {
       // เคยลงคะแนนแล้ว
-      io.emit('already-voted', { fullName });
+      emitter.emit('already-voted', { fullName });
       console.log(`[KIOSK] ปฏิเสธ: ${fullName} (ลงคะแนนไปแล้ว)`);
       return;
     }
@@ -233,16 +241,16 @@ async function processVoter(citizenId, fullName) {
     );
 
     const token = issueVoteToken();
-    io.emit('auth-success', { fullName, token });
+    emitter.emit('auth-success', { fullName, token });
     console.log(`[KIOSK] ยืนยันตัวตนสำเร็จ: ${fullName}`);
   } catch (err) {
     // กันกรณี race: เสียบบัตรซ้ำเร็ว ๆ จน INSERT ชน UNIQUE
     if (err && err.code === 'ER_DUP_ENTRY') {
-      io.emit('already-voted', { fullName });
+      emitter.emit('already-voted', { fullName });
       return;
     }
     console.error('[KIOSK] ผิดพลาดขณะตรวจสอบผู้ลงคะแนน:', err.message);
-    io.emit('card-error', { message: 'เกิดข้อผิดพลาดของระบบ กรุณาลองใหม่' });
+    emitter.emit('card-error', { message: 'เกิดข้อผิดพลาดของระบบ กรุณาลองใหม่' });
   }
 }
 
@@ -389,6 +397,21 @@ async function readThaiIdCard(reader, atr) {
 /*  Socket.io                                                          */
 /* ------------------------------------------------------------------ */
 io.on('connection', (socket) => {
+  // ── สถานีที่อ่านบัตรผ่าน Local Agent (โหมด Cloud + Agent) ─────────────
+  // หน้าคูหาบนเครื่องที่เสียบเครื่องอ่านบัตรจะรับข้อมูลบัตรจาก Agent ที่รันบน
+  // เครื่องเดียวกัน (ws://127.0.0.1) แล้วส่งต่อมาที่นี่ ผลลัพธ์ตอบกลับเฉพาะ
+  // socket ของสถานีนั้น เพื่อให้รองรับหลายเครื่องพร้อมกันได้
+  socket.on('station-card', async (payload) => {
+    const citizenId = String((payload && payload.citizenId) || '').replace(/\D/g, '');
+    const fullName = String((payload && payload.fullName) || '').trim();
+    if (citizenId.length !== 13 || !fullName) {
+      socket.emit('card-error', { message: 'ข้อมูลบัตรไม่ถูกต้อง กรุณาเสียบบัตรใหม่' });
+      return;
+    }
+    cardReaderState.lastCardReadAt = new Date().toISOString();
+    await processVoter(citizenId, fullName, socket);
+  });
+
   // โหมดจำลองบัตร (เฉพาะตอนตั้ง DEMO_MODE=1) — ใช้ทดสอบระบบโดยไม่มีเครื่องอ่านบัตร
   if (CONFIG.DEMO_MODE) {
     socket.on('demo-card', async (payload) => {
@@ -603,25 +626,41 @@ app.get('/admin/api/system-check', requireAdminApi, async (req, res) => {
     const checks = [];
     const add = (group, name, status, value, hint) => checks.push({ group, name, status, value, hint: hint || null });
 
+    // เซิร์ฟเวอร์ไม่จำเป็นต้องมีเครื่องอ่านบัตร/ไลบรารี PC/SC ในตัว เมื่อ:
+    //   - DEMO_MODE: จำลองบัตรเพื่อทดสอบ  หรือ
+    //   - AGENT_MODE: อ่านบัตรจริงผ่าน Local Agent บนเครื่องคูหา (โฮสต์บน Cloud)
+    // ในกรณีเหล่านี้ให้แสดงเป็นคำเตือน/ข้อมูล ไม่ใช่ข้อผิดพลาด (fail)
+    const cardStackOptional = CONFIG.DEMO_MODE || CONFIG.AGENT_MODE;
+    const optionalReason = CONFIG.AGENT_MODE
+      ? 'โหมด Local Agent เปิดอยู่ — อ่านบัตรจริงผ่านโปรแกรม card-agent บนเครื่องคูหา จึงไม่จำเป็นบนเซิร์ฟเวอร์'
+      : 'ขณะนี้เปิด DEMO_MODE อยู่ จึงไม่จำเป็นต้องมี (จำเป็นเฉพาะเมื่ออ่านบัตรบนเซิร์ฟเวอร์โดยตรง)';
+
     /* ---------- กลุ่มที่ 1: เครื่องอ่านบัตรประชาชน ---------- */
+    if (CONFIG.AGENT_MODE) {
+      add('reader', 'โหมดอ่านบัตร', 'ok',
+        'Local Agent (อ่านบัตรบนเครื่องคูหา)',
+        'เปิดโปรแกรม card-agent บนเครื่องที่เสียบเครื่องอ่านบัตร แล้วเปิดหน้าคูหาบนเครื่องเดียวกัน');
+    }
     if (cardReaderState.moduleLoaded) {
       const mod = inspectModule('@pokusew/pcsclite');
       add('reader', 'ไลบรารีอ่านบัตร @pokusew/pcsclite', 'ok',
         `ติดตั้งแล้ว${mod.version ? ` (v${mod.version})` : ''}`);
     } else {
       add('reader', 'ไลบรารีอ่านบัตร @pokusew/pcsclite',
-        CONFIG.DEMO_MODE ? 'warn' : 'fail',
-        'ไม่พบไลบรารี',
-        CONFIG.DEMO_MODE
-          ? 'ขณะนี้เปิด DEMO_MODE อยู่ จึงยังทดสอบระบบได้ แต่อ่านบัตรจริงไม่ได้'
+        cardStackOptional ? 'warn' : 'fail',
+        'ไม่พบไลบรารี (บนเซิร์ฟเวอร์)',
+        cardStackOptional
+          ? optionalReason
           : 'ติดตั้งด้วยคำสั่ง: npm install @pokusew/pcsclite (ต้องมีเครื่องมือคอมไพล์ของระบบ)');
     }
 
     const readerCount = cardReaderState.readers.length;
-    add('reader', 'เครื่องอ่านบัตร USB ที่เชื่อมต่ออยู่',
+    add('reader', 'เครื่องอ่านบัตร USB ที่เชื่อมต่ออยู่ (บนเซิร์ฟเวอร์)',
       readerCount > 0 ? 'ok' : 'warn',
       readerCount > 0 ? cardReaderState.readers.join(', ') : 'ไม่พบเครื่องอ่านบัตร',
-      readerCount > 0 ? null : 'เสียบเครื่องอ่านบัตรเข้าพอร์ต USB แล้วกดตรวจสอบอีกครั้ง');
+      readerCount > 0 ? null : CONFIG.AGENT_MODE
+        ? 'โหมด Local Agent: เครื่องอ่านบัตรอยู่ที่เครื่องคูหา ไม่ใช่เซิร์ฟเวอร์ (ตรวจสถานะได้ที่หน้าคูหา)'
+        : 'เสียบเครื่องอ่านบัตรเข้าพอร์ต USB แล้วกดตรวจสอบอีกครั้ง');
 
     add('reader', 'อ่านบัตรสำเร็จครั้งล่าสุด',
       cardReaderState.lastCardReadAt ? 'ok' : 'warn',
@@ -640,15 +679,24 @@ app.get('/admin/api/system-check', requireAdminApi, async (req, res) => {
       CONFIG.DEMO_MODE ? 'ก่อนใช้งานเลือกตั้งจริง ให้ตั้งค่า DEMO_MODE=0 ในไฟล์ .env' : null);
 
     /* ---------- กลุ่มที่ 2: ไลบรารีของระบบปฏิบัติการ ---------- */
+    // เมื่อ DEMO_MODE หรือ AGENT_MODE (เช่น รันบน Cloud/Docker ที่ไม่มีเครื่องอ่านบัตร)
+    // ไลบรารีและบริการ PC/SC ของระบบปฏิบัติการฝั่งเซิร์ฟเวอร์ไม่จำเป็นต้องมี จึงแสดง
+    // เป็นคำเตือน (warn) แทนข้อผิดพลาด (fail) — บังคับให้ต้องมีเฉพาะเมื่ออ่านบัตรบน
+    // เซิร์ฟเวอร์โดยตรง (bare-metal)
     const lib = pcscLibraryInfo();
-    add('os', lib.label, lib.found ? 'ok' : 'fail',
+    add('os', lib.label, lib.found ? 'ok' : cardStackOptional ? 'warn' : 'fail',
       lib.found ? `พบที่ ${lib.path}` : `ไม่พบที่ ${lib.path}`,
-      lib.found ? null : 'ระบบปฏิบัติการนี้ยังไม่มีไลบรารี PC/SC — ติดตั้งไดรเวอร์เครื่องอ่านบัตรก่อน');
+      lib.found ? null : cardStackOptional
+        ? optionalReason
+        : 'ระบบปฏิบัติการนี้ยังไม่มีไลบรารี PC/SC — ติดตั้งไดรเวอร์เครื่องอ่านบัตรก่อน');
 
     const svc = await pcscServiceStatus();
-    add('os', svc.label, svc.running === true ? 'ok' : svc.running === false ? 'fail' : 'warn',
+    const svcStatus = svc.running === true ? 'ok' : cardStackOptional ? 'warn' : svc.running === false ? 'fail' : 'warn';
+    add('os', svc.label, svcStatus,
       svc.state,
-      svc.running === true ? null : 'เปิดบริการ Smart Card ของระบบปฏิบัติการก่อนใช้งานเครื่องอ่านบัตร');
+      svc.running === true ? null : cardStackOptional
+        ? optionalReason
+        : 'เปิดบริการ Smart Card ของระบบปฏิบัติการก่อนใช้งานเครื่องอ่านบัตร');
 
     add('os', 'ระบบปฏิบัติการ', 'ok', `${os.type()} ${os.release()} (${process.arch})`);
     add('os', 'หน่วยประมวลผล (CPU)', 'ok',

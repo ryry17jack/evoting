@@ -1,0 +1,15 @@
+{
+  "name": "evoting-card-agent",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Local Thai national-ID card reader agent for the E-Voting kiosk (bridges a USB PC/SC reader to the browser via localhost WebSocket).",
+  "main": "card-agent.js",
+  "scripts": {
+    "start": "node card-agent.js"
+  },
+  "dependencies": {
+    "@pokusew/pcsclite": "^0.6.0",
+    "iconv-lite": "^0.6.3",
+    "ws": "^8.18.0"
+  }
+}

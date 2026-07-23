@@ -43,6 +43,9 @@ services:
       SESSION_SECRET: ${SESSION_SECRET:-change-me-to-a-long-random-string}
       # DEMO_MODE=1 enables F2 card simulation (no physical reader in a container)
       DEMO_MODE: ${DEMO_MODE:-1}
+      # AGENT_MODE=1 = real cards read by the card-agent on each kiosk PC (see agent/).
+      # For a real cloud election: set AGENT_MODE=1 and DEMO_MODE=0.
+      AGENT_MODE: ${AGENT_MODE:-0}
     ports:
       - "${APP_PORT:-3000}:3000"
     volumes:
