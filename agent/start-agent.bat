@@ -84,13 +84,18 @@ if not exist "%~dp0node_modules\@pokusew\pcsclite\build\Release\pcsclite.node" (
 
 REM ---- 3) Start the agent ----
 echo [OK] Ready - starting Card Agent...
-echo     ^(Keep this window open during voting. Press Ctrl+C to stop.^)
+echo     Keep this window open during voting.
+echo     When voting is finished, press  ESC  to close this program.
+echo     (Thai instructions are shown by the agent window below.)
 echo.
 REM Switch console to UTF-8 so the agent's Thai messages render correctly.
 REM Safe here because this .bat is ASCII-only; only Node's UTF-8 output follows.
 chcp 65001 >nul
 "%NODE_EXE%" "%~dp0card-agent.js"
 
-echo.
-echo Agent stopped.
-pause
+REM Clean exit via ESC returns 0 -> just close. An error keeps the window open.
+if errorlevel 1 (
+  echo.
+  echo Agent stopped with an error. See messages above.
+  pause
+)

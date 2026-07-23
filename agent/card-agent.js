@@ -76,12 +76,33 @@ wss.on('connection', (ws) => {
 });
 
 server.listen(PORT, '127.0.0.1', () => {
-  console.log('──────────────────────────────────────────────────────');
+  console.log('══════════════════════════════════════════════════════');
   console.log(`  E-Voting Card Agent พร้อมใช้งานที่ ws://127.0.0.1:${PORT}`);
   console.log('  เปิดหน้าเว็บระบบเลือกตั้งบนเครื่องนี้ แล้วเสียบบัตรได้เลย');
-  console.log('  (ปิดโปรแกรมด้วย Ctrl+C)');
-  console.log('──────────────────────────────────────────────────────');
+  console.log('  ─────────────────────────────────────────────────');
+  console.log('  ✅ เมื่อเสร็จสิ้นการลงคะแนน กดปุ่ม  ESC  เพื่อปิดโปรแกรม');
+  console.log('══════════════════════════════════════════════════════');
+  setupKeyExit();
 });
+
+// รับปุ่มกดจากแป้นพิมพ์เพื่อปิดโปรแกรม: กด ESC (หรือ Q / Ctrl+C) เพื่อออก
+function setupKeyExit() {
+  if (!process.stdin.isTTY) return; // ไม่มีหน้าจอ console (เช่นรันเป็น service) ก็ข้ามไป
+  try {
+    process.stdin.setRawMode(true);
+  } catch (_) {
+    return;
+  }
+  process.stdin.resume();
+  process.stdin.on('data', (buf) => {
+    const b = buf[0];
+    // ESC = 0x1b, Ctrl+C = 0x03, q = 0x71, Q = 0x51
+    if (b === 0x1b || b === 0x03 || b === 0x71 || b === 0x51) {
+      console.log('\n[AGENT] กำลังปิดโปรแกรม... ขอบคุณครับ');
+      process.exit(0);
+    }
+  });
+}
 
 server.on('error', (err) => {
   if (err.code === 'EADDRINUSE') {
