@@ -1,6 +1,7 @@
 node_modules/
 .env
 
-# Card agent build artifacts (portable Node + packaged dist) — see agent/
+# Card agent build artifacts (portable Node + packaged dist + installer) — see agent/
 /agent/node/
 /agent-dist/
+/agent/installer-output/
