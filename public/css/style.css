@@ -759,3 +759,105 @@ table.retro-table.dataTable thead th .dt-column-order::after {
   font-weight: bold;
   margin-bottom: 14px;
 }
+
+/* ---------- ตัวครอบตัด / ย่อ-ขยายรูปผู้สมัคร (Image Cropper) ---------- */
+.cropper-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(0, 0, 0, 0.65);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.cropper-overlay.show {
+  display: flex;
+}
+
+.cropper-window {
+  width: auto;
+  max-width: 95vw;
+}
+
+.cropper-window .win-body {
+  text-align: center;
+}
+
+.cropper-stage {
+  position: relative;
+  width: 340px;
+  height: 340px;
+  max-width: 82vw;
+  margin: 0 auto;
+  border: 3px solid var(--retro-black);
+  background:
+    repeating-conic-gradient(#d9d9d9 0% 25%, #ffffff 0% 50%) 0 / 24px 24px; /* หมากรุกโปร่งใส */
+  overflow: hidden;
+  touch-action: none;
+}
+
+.cropper-canvas {
+  display: block;
+  cursor: move;
+}
+
+/* กรอบเส้นแบ่ง 3 ส่วน (rule of thirds) ช่วยจัดองค์ประกอบ */
+.cropper-frame {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.85);
+  background-image:
+    linear-gradient(rgba(0, 0, 0, 0.35) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.35) 1px, transparent 1px);
+  background-size: 33.33% 33.33%;
+  background-position: 0 33.33%, 33.33% 0;
+  background-repeat: repeat-y, repeat-x;
+}
+
+.cropper-controls {
+  margin-top: 16px;
+  max-width: 340px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.cropper-zoom-label {
+  display: block;
+  font-weight: bold;
+  margin-bottom: 8px;
+  text-align: left;
+}
+
+.cropper-zoom-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-weight: bold;
+  font-size: 1.3rem;
+}
+
+.cropper-zoom {
+  flex: 1;
+  height: 24px;
+  cursor: pointer;
+  accent-color: var(--retro-blue);
+}
+
+.cropper-hint {
+  font-size: 0.85rem;
+  font-weight: bold;
+  color: var(--retro-blue);
+  margin-top: 10px;
+  text-align: left;
+}
+
+.cropper-actions {
+  margin-top: 18px;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+}

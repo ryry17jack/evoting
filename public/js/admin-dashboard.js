@@ -142,6 +142,7 @@ const photoPreview = document.getElementById('candidate-photo-preview');
 
 let editingNo = null;        // null = โหมดเพิ่มใหม่, ตัวเลข = โหมดแก้ไข
 let candidatesCache = [];    // ข้อมูลล่าสุดจากเซิร์ฟเวอร์ (ใช้เติมฟอร์มตอนแก้ไข)
+let croppedPhotoBlob = null; // รูปที่ครอบตัด/ย่อ-ขยายแล้ว รอส่งขึ้นเซิร์ฟเวอร์ (null = ไม่เปลี่ยนรูป)
 let pendingDeleteNo = null;  // หมายเลขที่กำลังรอยืนยันลบ (กดซ้ำเพื่อยืนยัน)
 let pendingDeleteTimer = null;
 
@@ -197,6 +198,7 @@ function showFormError(msg) {
 
 function openAddForm() {
   editingNo = null;
+  croppedPhotoBlob = null;
   formTitle.textContent = 'เพิ่มผู้สมัครใหม่';
   formEl.reset();
   noInput.disabled = false;
@@ -211,6 +213,7 @@ function openEditForm(no) {
   const c = candidatesCache.find((x) => x.candidate_no === no);
   if (!c) return;
   editingNo = no;
+  croppedPhotoBlob = null;
   formTitle.textContent = `แก้ไขผู้สมัครหมายเลข ${no}`;
   formEl.reset();
   noInput.value = c.candidate_no;
@@ -230,10 +233,24 @@ function closeForm() {
   loadCandidates();
 }
 
-// แสดงตัวอย่างรูปที่เลือกทันที
-photoInput.addEventListener('change', () => {
+// เลือกรูป → เปิดหน้าต่างครอบตัด/ย่อ-ขยาย แล้วเก็บผลเป็น Blob รอส่งขึ้นเซิร์ฟเวอร์
+photoInput.addEventListener('change', async () => {
   const file = photoInput.files && photoInput.files[0];
-  if (file) photoPreview.src = URL.createObjectURL(file);
+  // เคลียร์ค่า input ทันที เพื่อให้เลือกไฟล์เดิมซ้ำแล้วยัง trigger change ได้ (เราถือรูปไว้เองใน Blob)
+  photoInput.value = '';
+  if (!file) return;
+
+  try {
+    const blob = await openImageCropper(file);
+    if (!blob) return; // ผู้ใช้กดยกเลิก — คงรูปเดิมไว้
+    croppedPhotoBlob = blob;
+    if (photoPreview.dataset.objUrl) URL.revokeObjectURL(photoPreview.dataset.objUrl);
+    const objUrl = URL.createObjectURL(blob);
+    photoPreview.dataset.objUrl = objUrl;
+    photoPreview.src = objUrl;
+  } catch (err) {
+    showFormError('เปิดรูปภาพนี้ไม่ได้ — กรุณาเลือกไฟล์รูปอื่น (PNG / JPG / WebP)');
+  }
 });
 
 formEl.addEventListener('submit', async (e) => {
@@ -247,7 +264,8 @@ formEl.addEventListener('submit', async (e) => {
   fd.append('candidate_no', noInput.value);
   fd.append('candidate_name', nameInput.value);
   fd.append('description', descInput.value);
-  if (photoInput.files && photoInput.files[0]) fd.append('photo', photoInput.files[0]);
+  // ส่งเฉพาะรูปที่ครอบตัด/ย่อ-ขยายแล้ว (ถ้าไม่ได้เลือกรูปใหม่ จะไม่แนบ — ฝั่งแก้ไขจะคงรูปเดิม)
+  if (croppedPhotoBlob) fd.append('photo', croppedPhotoBlob, 'candidate.jpg');
 
   try {
     const url = editingNo === null ? '/admin/api/candidates' : `/admin/api/candidates/${editingNo}`;
