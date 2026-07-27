@@ -10,7 +10,11 @@
 # ---------------------------------------------------------------------------
 FROM node:20-alpine
 
-# wget (in busybox) is used by the compose healthcheck
+# wget (in busybox) is used by the compose healthcheck.
+# tzdata gives Alpine the zoneinfo database so TZ=Asia/Bangkok resolves
+# (without it the container silently falls back to UTC).
+RUN apk add --no-cache tzdata
+
 WORKDIR /app
 
 # Install dependencies first for better layer caching
@@ -25,7 +29,8 @@ RUN mkdir -p public/img/uploads
 VOLUME ["/app/public/img/uploads"]
 
 ENV NODE_ENV=production \
-    PORT=3000
+    PORT=3000 \
+    TZ=Asia/Bangkok
 
 EXPOSE 3000
 

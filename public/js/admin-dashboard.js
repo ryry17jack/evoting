@@ -567,7 +567,9 @@ document.getElementById('btn-system-check').addEventListener('click', loadSystem
 async function refreshAll() {
   try {
     await Promise.all([loadLogs(), loadResults(), loadCandidates()]);
-    document.getElementById('stat-updated').textContent = new Date().toLocaleTimeString('th-TH');
+    // แสดงเป็นเวลาไทยเสมอ ไม่ขึ้นกับเขตเวลาที่ตั้งไว้ในเครื่องที่เปิดหน้านี้
+    document.getElementById('stat-updated').textContent =
+      new Date().toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok' });
   } catch (e) {
     console.error('รีเฟรชข้อมูลไม่สำเร็จ:', e);
   }

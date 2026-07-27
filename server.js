@@ -35,6 +35,27 @@ try {
 }
 
 /* ------------------------------------------------------------------ */
+/*  เขตเวลาของระบบ (Timezone) — ค่าเริ่มต้น Asia/Bangkok (UTC+7)         */
+/*  ต้องตั้งก่อนใช้งาน Date ครั้งแรก เพื่อให้เวลาที่แสดงผลเป็นเวลาไทยเสมอ    */
+/*  แม้เซิร์ฟเวอร์/คอนเทนเนอร์จะตั้งเขตเวลาเป็น UTC ก็ตาม                  */
+/* ------------------------------------------------------------------ */
+process.env.TZ = process.env.TZ || 'Asia/Bangkok';
+
+// แปลงชื่อเขตเวลาเป็น offset แบบ "+07:00" — MySQL ไม่ได้โหลดตารางชื่อเขตเวลา
+// (mysql.time_zone_name) ไว้ตามค่าเริ่มต้น จึงต้องส่งเป็น offset เท่านั้น
+function tzToOffset(timeZone) {
+  try {
+    const name = new Intl.DateTimeFormat('en-US', { timeZone, timeZoneName: 'longOffset' })
+      .formatToParts(new Date())
+      .find((p) => p.type === 'timeZoneName').value; // เช่น "GMT+07:00" หรือ "GMT"
+    const m = name.match(/([+-]\d{2}:\d{2})$/);
+    return m ? m[1] : '+00:00';
+  } catch (e) {
+    return '+07:00';
+  }
+}
+
+/* ------------------------------------------------------------------ */
 /*  การตั้งค่า (แก้ไขได้ผ่านไฟล์ .env หรือ Environment Variables)        */
 /* ------------------------------------------------------------------ */
 const CONFIG = {
@@ -50,6 +71,13 @@ const CONFIG = {
   // ตั้ง AGENT_MODE=1 เมื่อโฮสต์บน Cloud/Coolify — หน้าตรวจสอบระบบจะไม่ถือว่าเซิร์ฟเวอร์
   // ต้องมีเครื่องอ่านบัตร/ไลบรารี PC/SC ในตัว
   AGENT_MODE: process.env.AGENT_MODE === '1',
+  // เขตเวลาของแอป (ใช้กับการแสดงผลเวลาทั้งหมด)
+  TZ: process.env.TZ,
+  // เขตเวลาที่ใช้กับ MySQL — ต้องเป็น offset รูปแบบ "+07:00"
+  // ถ้าไม่ได้ระบุ DB_TIMEZONE จะคำนวณจาก TZ ให้อัตโนมัติ
+  DB_TIMEZONE: /^[+-]\d{2}:\d{2}$/.test(process.env.DB_TIMEZONE || '')
+    ? process.env.DB_TIMEZONE
+    : tzToOffset(process.env.TZ),
 };
 
 let pool; // MySQL connection pool
@@ -63,7 +91,11 @@ async function initDatabase() {
     user: CONFIG.DB_USER,
     password: CONFIG.DB_PASS,
     charset: 'utf8mb4',
+    timezone: CONFIG.DB_TIMEZONE,
   });
+
+  // ให้ CURRENT_TIMESTAMP / NOW() และการอ่านคอลัมน์ TIMESTAMP เป็นเวลาไทย
+  await conn.query(`SET time_zone = '${CONFIG.DB_TIMEZONE}'`);
 
   await conn.query(
     `CREATE DATABASE IF NOT EXISTS \`${CONFIG.DB_NAME}\`
@@ -136,11 +168,21 @@ async function initDatabase() {
     password: CONFIG.DB_PASS,
     database: CONFIG.DB_NAME,
     charset: 'utf8mb4',
+    timezone: CONFIG.DB_TIMEZONE,
     waitForConnections: true,
     connectionLimit: 10,
   });
 
+  // ทุก connection ที่ pool สร้างใหม่ต้องใช้เขตเวลาเดียวกัน (คำสั่งนี้ถูกจัดคิว
+  // ก่อนคำสั่งอื่นของ connection นั้นเสมอ)
+  pool.on('connection', (conn) => {
+    conn.query(`SET time_zone = '${CONFIG.DB_TIMEZONE}'`, (err) => {
+      if (err) console.warn('[DB] ตั้งเขตเวลาให้ connection ไม่สำเร็จ:', err.message);
+    });
+  });
+
   console.log(`[DB] เชื่อมต่อฐานข้อมูล "${CONFIG.DB_NAME}" สำเร็จ`);
+  console.log(`[TZ] เขตเวลา: ${CONFIG.TZ} (MySQL ${CONFIG.DB_TIMEZONE}) — ${new Date().toLocaleString('th-TH')}`);
 }
 
 /* ------------------------------------------------------------------ */
@@ -734,6 +776,21 @@ app.get('/admin/api/system-check', requireAdminApi, async (req, res) => {
     const upMin = Math.floor(process.uptime() / 60);
     add('server', 'เซิร์ฟเวอร์ทำงานต่อเนื่อง', 'ok',
       `${Math.floor(upMin / 60)} ชั่วโมง ${upMin % 60} นาที (พอร์ต ${CONFIG.PORT})`);
+
+    // เขตเวลา — เวลาของเซิร์ฟเวอร์กับฐานข้อมูลต้องตรงกัน ไม่เช่นนั้นเวลาที่บันทึก
+    // การใช้สิทธิ์จะเพี้ยนไปจากเวลาจริง
+    try {
+      const [[tzRow]] = await pool.query(
+        `SELECT @@session.time_zone AS tz, DATE_FORMAT(NOW(), '%d/%m/%Y %H:%i:%s') AS now`
+      );
+      const tzMatch = tzRow.tz === CONFIG.DB_TIMEZONE;
+      add('server', 'เขตเวลา (Timezone)', tzMatch ? 'ok' : 'warn',
+        `เซิร์ฟเวอร์ ${CONFIG.TZ} — ${new Date().toLocaleString('th-TH')} | ฐานข้อมูล ${tzRow.tz} — ${tzRow.now}`,
+        tzMatch ? null : `ฐานข้อมูลใช้เขตเวลา ${tzRow.tz} ไม่ตรงกับ ${CONFIG.DB_TIMEZONE} — ตรวจค่า TZ / DB_TIMEZONE ในไฟล์ .env`);
+    } catch (e) {
+      add('server', 'เขตเวลา (Timezone)', 'warn',
+        `เซิร์ฟเวอร์ ${CONFIG.TZ} — ${new Date().toLocaleString('th-TH')} (ตรวจฝั่งฐานข้อมูลไม่ได้)`);
+    }
 
     res.json({ ok: true, generatedAt: new Date().toLocaleString('th-TH'), checks });
   } catch (e) {

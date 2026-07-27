@@ -14,9 +14,13 @@ services:
   db:
     image: mysql:8.0
     restart: unless-stopped
+    # Store/serve times as UTC+7 (Bangkok). An offset is used rather than a zone
+    # name because the official image has no timezone tables loaded.
+    command: --default-time-zone=${DB_TIMEZONE:-+07:00}
     environment:
       MYSQL_ROOT_PASSWORD: ${DB_PASS:-evoting_secret}
       MYSQL_DATABASE: ${DB_NAME:-evoting_db}
+      TZ: ${TZ:-Asia/Bangkok}
     volumes:
       - db_data:/var/lib/mysql
     healthcheck:
@@ -39,6 +43,10 @@ services:
       DB_USER: root
       DB_PASS: ${DB_PASS:-evoting_secret}
       DB_NAME: ${DB_NAME:-evoting_db}
+      # Timezone for every displayed/recorded timestamp. DB_TIMEZONE must be the
+      # matching UTC offset of TZ (the app derives it automatically if unset).
+      TZ: ${TZ:-Asia/Bangkok}
+      DB_TIMEZONE: ${DB_TIMEZONE:-+07:00}
       # Keep sessions valid across restarts/replicas — set a long random string
       SESSION_SECRET: ${SESSION_SECRET:-change-me-to-a-long-random-string}
       # DEMO_MODE=1 enables F2 card simulation (no physical reader in a container)
