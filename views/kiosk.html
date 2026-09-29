@@ -19,7 +19,8 @@
         <div class="kiosk-card-icon">💳</div>
         <h1 class="kiosk-giant-text mt-2">กรุณาเสียบบัตรประชาชน<br>เพื่อลงคะแนนเสียง</h1>
         <p class="badge-yellow mt-3 blink" style="font-size:1.5rem;">▼ เสียบบัตรที่เครื่องอ่านด้านล่าง ▼</p>
-        <p class="mt-2" style="font-weight:bold;">ระบบจะยืนยันตัวตนอัตโนมัติ (e-KYC) — 1 คน ลงคะแนนได้ 1 ครั้งเท่านั้น</p>
+        <p class="mt-2" style="font-weight:bold;">ระบบจะยืนยันตัวตนอัตโนมัติ (e-KYC) — 1 คน ลงคะแนนได้ 1 ครั้งต่อกิจกรรม</p>
+        <div id="open-elections" class="open-elections mt-2"></div>
       </div>
     </div>
   </section>
@@ -49,6 +50,19 @@
     </div>
   </section>
 
+  <!-- ═══════════ ไม่มีชื่อในบัญชีผู้มีสิทธิ์ ═══════════ -->
+  <section id="screen-noteligible" class="kiosk-screen screen-warning">
+    <div class="win-window kiosk-window">
+      <div class="win-titlebar" style="background:#000;"><span>⚠ ตรวจสอบสิทธิ์ ⚠</span></div>
+      <div class="win-body text-center">
+        <div class="kiosk-card-icon">📋</div>
+        <h1 class="kiosk-giant-text mt-2" style="color:#dd0000;">ไม่พบรายชื่อของท่าน<br>ในบัญชีผู้มีสิทธิ์เลือกตั้ง</h1>
+        <p id="noteligible-name" class="mt-2" style="font-size:1.6rem; font-weight:bold;"></p>
+        <p class="badge-yellow mt-3" style="font-size:1.3rem;">กรุณาดึงบัตรออก แล้วติดต่อเจ้าหน้าที่ประจำหน่วย</p>
+      </div>
+    </div>
+  </section>
+
   <!-- ═══════════ ข้อผิดพลาดการอ่านบัตร ═══════════ -->
   <section id="screen-error" class="kiosk-screen screen-warning">
     <div class="win-window kiosk-window">
@@ -70,9 +84,12 @@
       </div>
       <div class="win-body">
         <div class="panel text-center ballot-header" style="background:#ffffcc;">
-          <h1 class="kiosk-title">ยินดีต้อนรับ</h1>
+          <p id="ballot-progress" class="ballot-progress"></p>
+          <p id="manual-badge" class="manual-badge" style="display:none;">🔑 ยืนยันตัวตนโดยเจ้าหน้าที่</p>
+          <h1 id="ballot-title" class="kiosk-title">บัตรเลือกตั้ง</h1>
           <p id="voter-name"></p>
           <p class="ballot-hint">กรุณากดปุ่ม "ลงคะแนน" ใต้ผู้สมัครที่ท่านต้องการเลือก (เลือกได้ 1 หมายเลข)</p>
+          <p class="ballot-timer">เหลือเวลา <span id="ballot-countdown">--</span> วินาที</p>
         </div>
         <div id="candidate-grid" class="candidate-grid mt-2">
           <!-- รายชื่อผู้สมัครจะถูกเติมด้วย JavaScript -->
@@ -88,15 +105,63 @@
       <div class="win-body text-center">
         <div class="kiosk-card-icon">✅</div>
         <h1 class="kiosk-giant-text mt-2" style="color:#00aa00;">ขอบคุณ<br>ที่มาใช้สิทธิ์เลือกตั้ง!</h1>
+        <p id="thanks-detail" class="mt-2" style="font-size:1.4rem; font-weight:bold;"></p>
         <p class="badge-yellow mt-3" style="font-size:1.3rem;">ระบบบันทึกคะแนนของท่านแบบนิรนามเรียบร้อยแล้ว</p>
       </div>
     </div>
   </section>
 
+  <!-- ═══════════ หน้าต่างยืนยันการลงคะแนน ═══════════ -->
+  <div id="confirm-overlay" class="confirm-overlay" style="display:none;">
+    <div class="win-window confirm-window">
+      <div class="win-titlebar"><span>ยืนยันการลงคะแนน</span></div>
+      <div class="win-body text-center">
+        <img id="confirm-photo" class="candidate-photo" src="/img/novote.svg" alt="">
+        <p class="confirm-question">ท่านเลือก</p>
+        <p id="confirm-choice" class="confirm-choice"></p>
+        <div class="confirm-actions">
+          <button id="confirm-yes" class="btn btn-green">✔ ยืนยัน ลงคะแนน</button>
+          <button id="confirm-no" class="btn">◄ กลับไปเลือกใหม่</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ เจ้าหน้าที่กรอกเลขบัตรแทน (ชิปบัตรอ่านไม่ได้) ═══════════ -->
+  <div id="officer-overlay" class="confirm-overlay" style="display:none;">
+    <div class="win-window officer-window">
+      <div class="win-titlebar">
+        <span>🔑 เจ้าหน้าที่: กรอกเลขบัตรแทน (กรณีอ่านบัตรไม่ได้)</span>
+        <div class="win-buttons"><span id="officer-close" style="cursor:pointer;">✕</span></div>
+      </div>
+      <div class="win-body">
+        <div id="officer-error" class="error-box" style="display:none;"></div>
+        <label class="form-label" for="officer-pin" style="margin-top:0;">PIN เจ้าหน้าที่ (6 หลัก)</label>
+        <input id="officer-pin" class="form-input officer-field" type="password" inputmode="numeric" maxlength="6" autocomplete="off">
+        <label class="form-label" for="officer-cid">เลขประจำตัวประชาชนของผู้มาใช้สิทธิ์ (13 หลัก)</label>
+        <input id="officer-cid" class="form-input officer-field" type="text" inputmode="numeric" maxlength="13" autocomplete="off">
+        <label class="form-label" for="officer-name">ชื่อ-นามสกุล <small>(ไม่บังคับ — ระบบใช้ชื่อจากบัญชีรายชื่อถ้ามี)</small></label>
+        <input id="officer-name" class="form-input" type="text" maxlength="255" autocomplete="off">
+        <div id="officer-pad" class="officer-pad">
+          <button type="button" data-k="1">1</button><button type="button" data-k="2">2</button><button type="button" data-k="3">3</button>
+          <button type="button" data-k="4">4</button><button type="button" data-k="5">5</button><button type="button" data-k="6">6</button>
+          <button type="button" data-k="7">7</button><button type="button" data-k="8">8</button><button type="button" data-k="9">9</button>
+          <button type="button" data-k="clear">ล้าง</button><button type="button" data-k="0">0</button><button type="button" data-k="back">⌫</button>
+        </div>
+        <p class="officer-note">ตรวจบัตรประชาชนของผู้มาใช้สิทธิ์ด้วยสายตาก่อนกรอกทุกครั้ง — การกรอกแทนจะถูกบันทึกชื่อเจ้าหน้าที่ไว้</p>
+        <div class="confirm-actions" style="margin-top:14px;">
+          <button id="officer-submit" class="btn btn-green">✔ ยืนยันตัวตนผู้มาใช้สิทธิ์</button>
+          <button id="officer-cancel" class="btn">ยกเลิก</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- แถบสถานะเครื่องอ่านบัตรด้านล่างจอ -->
   <div class="reader-statusbar">
     <span><span id="reader-led" class="status-led"></span>เครื่องอ่านบัตร: <span id="reader-name">กำลังค้นหา...</span></span>
     <span><span id="server-led" class="status-led"></span>เซิร์ฟเวอร์: <span id="server-status">กำลังเชื่อมต่อ...</span></span>
+    <button id="officer-open" class="statusbar-officer" type="button" title="เจ้าหน้าที่: กรอกเลขบัตรแทนเมื่ออ่านบัตรไม่ได้ (F9)">🔑 เจ้าหน้าที่</button>
     <span class="statusbar-credit">Copyright 2026 &copy; - พัฒนาโดย: นายวัชรินทร์ ผ่องสุวรรณ | งานศูนย์ดิจิทัลและสื่อสารองค์กร วิทยาลัยเทคนิคสงขลา</span>
   </div>
 

@@ -54,11 +54,20 @@ services:
       # AGENT_MODE=1 = real cards read by the card-agent on each kiosk PC (see agent/).
       # For a real cloud election: set AGENT_MODE=1 and DEMO_MODE=0.
       AGENT_MODE: ${AGENT_MODE:-0}
+      # Automatic database backups (written to the "backups" volume below).
+      # Also taken on every election close and before delete/clear/restore.
+      BACKUP_INTERVAL_HOURS: ${BACKUP_INTERVAL_HOURS:-6}
+      BACKUP_KEEP: ${BACKUP_KEEP:-30}
+      # Behind Coolify's reverse proxy: trust X-Forwarded-* (real client IP in
+      # the audit log, secure cookies over HTTPS). Set 0 only if exposed directly.
+      TRUST_PROXY: ${TRUST_PROXY:-1}
     ports:
       - "${APP_PORT:-3000}:3000"
     volumes:
       # Persist uploaded candidate photos across container rebuilds
       - uploads:/app/public/img/uploads
+      # Persist database backups across redeploys (download copies off-server too)
+      - backups:/app/backups
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:3000/"]
       interval: 15s
@@ -69,3 +78,4 @@ services:
 volumes:
   db_data:
   uploads:
+  backups:

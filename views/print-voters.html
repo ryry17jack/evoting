@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>พิมพ์รายชื่อผู้มีสิทธิ์เลือกตั้ง | E-VOTING</title>
+  <link rel="stylesheet" href="/css/print.css">
+</head>
+<body>
+  <div class="print-toolbar">
+    <label>เอกสาร:
+      <select id="opt-mode">
+        <option value="announce">ประกาศรายชื่อผู้มีสิทธิ์ (ติดประกาศ)</option>
+        <option value="checklist">บัญชีลงลายมือชื่อ / ตรวจการมาใช้สิทธิ์ (เจ้าหน้าที่)</option>
+      </select>
+    </label>
+    <label>เลขบัตร:
+      <select id="opt-cid">
+        <option value="mask">ปิดบางส่วน (x-xxxx-xxxxx-12-3)</option>
+        <option value="full">แสดงเต็ม</option>
+        <option value="none">ไม่แสดง</option>
+      </select>
+    </label>
+    <label>เรียงตาม:
+      <select id="opt-sort">
+        <option value="import">ลำดับตามไฟล์</option>
+        <option value="name">ชื่อ (ก-ฮ)</option>
+      </select>
+    </label>
+    <label><input type="checkbox" id="opt-group" checked> แยกตามกลุ่ม/ชั้น</label>
+    <label><input type="checkbox" id="opt-pagebreak"> ขึ้นหน้าใหม่ทุกกลุ่ม</label>
+    <label>หน่วยงาน: <input type="text" id="opt-org" placeholder="เช่น วิทยาลัยเทคนิคสงขลา"></label>
+    <button id="btn-print">🖨 พิมพ์</button>
+  </div>
+
+  <div class="sheet">
+    <div id="doc" class="loading">กำลังโหลดข้อมูล...</div>
+  </div>
+
+  <script src="/js/print-common.js"></script>
+  <script src="/js/print-voters.js"></script>
+</body>
+</html>

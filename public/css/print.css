@@ -1,0 +1,232 @@
+/* =====================================================================
+   PRINT.CSS — เอกสารสำหรับพิมพ์ (ประกาศรายชื่อผู้มีสิทธิ์ / รายงานผลการเลือกตั้ง)
+   รูปแบบเอกสารราชการ ขาว-ดำ ขนาด A4 (ไม่ใช้ธีมเรโทรของระบบ)
+   ===================================================================== */
+
+@page {
+  size: A4;
+  margin: 14mm 14mm 16mm;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: #d9d9d9;
+  color: #000;
+  font-family: 'TH Sarabun New', 'TH SarabunPSK', 'Sarabun', 'Leelawadee UI', Tahoma, sans-serif;
+  font-size: 16px;
+  /* TH Sarabun ตัวเล็กกว่าฟอนต์อื่นมากที่ขนาดเดียวกัน — ปรับตามความสูงตัวอักษรให้อ่านง่ายเท่ากันทุกฟอนต์ */
+  font-size-adjust: 0.5;
+  line-height: 1.45;
+}
+
+/* ---------- แถบตัวเลือก (แสดงบนจอเท่านั้น) ---------- */
+.print-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: #0000aa;
+  color: #fff;
+  padding: 10px 16px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 18px;
+  align-items: center;
+  font-family: Tahoma, 'Leelawadee UI', sans-serif;
+  font-size: 14px;
+  border-bottom: 3px solid #000;
+}
+
+.print-toolbar label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: bold;
+}
+
+.print-toolbar select,
+.print-toolbar input[type='text'] {
+  font: inherit;
+  padding: 4px 6px;
+  border: 2px solid #000;
+}
+
+.print-toolbar input[type='text'] {
+  width: 260px;
+}
+
+.print-toolbar button {
+  font: inherit;
+  font-weight: bold;
+  background: #ffd500;
+  border: 3px solid #000;
+  padding: 6px 18px;
+  cursor: pointer;
+  margin-left: auto;
+}
+
+/* ---------- หน้ากระดาษบนจอ ---------- */
+.sheet {
+  background: #fff;
+  width: 210mm;
+  min-height: 297mm;
+  margin: 16px auto;
+  padding: 14mm;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.25);
+}
+
+.doc-section + .doc-section {
+  margin-top: 28px;
+}
+
+.doc-header {
+  text-align: center;
+  margin-bottom: 12px;
+}
+
+.doc-org {
+  font-size: 1.15em;
+  font-weight: bold;
+}
+
+.doc-title {
+  font-size: 1.55em;
+  font-weight: bold;
+  margin: 2px 0;
+}
+
+.doc-subtitle {
+  font-size: 1.2em;
+  font-weight: bold;
+}
+
+.doc-meta {
+  font-size: 1em;
+}
+
+.doc-note {
+  border: 1px solid #000;
+  padding: 6px 10px;
+  margin: 10px 0;
+  font-weight: bold;
+  text-align: center;
+}
+
+.group-title {
+  font-size: 1.15em;
+  font-weight: bold;
+  margin: 14px 0 6px;
+  border-bottom: 2px solid #000;
+  padding-bottom: 2px;
+}
+
+table.doc-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 6px;
+}
+
+.doc-table th,
+.doc-table td {
+  border: 1px solid #000;
+  padding: 3px 8px;
+  vertical-align: top;
+}
+
+.doc-table th {
+  background: #eeeeee;
+  font-weight: bold;
+  text-align: center;
+}
+
+.doc-table tr {
+  page-break-inside: avoid;
+}
+
+.c { text-align: center; }
+.r { text-align: right; }
+.b { font-weight: bold; }
+.mono { font-family: Consolas, 'Courier New', monospace; font-size: 0.9em; }
+.nowrap { white-space: nowrap; }
+.muted { color: #555; }
+
+.doc-summary {
+  margin-top: 10px;
+  font-weight: bold;
+}
+
+.page-break {
+  page-break-before: always;
+  break-before: page;
+}
+
+/* แถบคะแนนในรายงาน (พิมพ์ได้ทั้งเครื่องขาวดำ) */
+.bar {
+  height: 12px;
+  border: 1px solid #000;
+  background: #fff;
+  min-width: 120px;
+}
+
+.bar > span {
+  display: block;
+  height: 100%;
+  background: #555;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.winner-row td {
+  font-weight: bold;
+  background: #f2f2f2;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.check-ok { font-weight: bold; }
+.check-bad { font-weight: bold; text-decoration: underline; }
+
+.signatures {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px 18px;
+  margin-top: 40px;
+  text-align: center;
+  page-break-inside: avoid;
+}
+
+.signatures .line {
+  margin-top: 36px;
+}
+
+.doc-footer {
+  margin-top: 18px;
+  font-size: 0.85em;
+  color: #333;
+  text-align: right;
+}
+
+.loading {
+  text-align: center;
+  font-weight: bold;
+  padding: 40px 0;
+}
+
+@media print {
+  body {
+    background: #fff;
+  }
+  .print-toolbar {
+    display: none;
+  }
+  .sheet {
+    width: auto;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    box-shadow: none;
+  }
+}

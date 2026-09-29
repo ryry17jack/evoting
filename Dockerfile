@@ -24,9 +24,10 @@ RUN npm ci --omit=dev --omit=optional && npm cache clean --force
 # App source
 COPY . .
 
-# Uploaded candidate photos live here; declared as a volume so they persist
-RUN mkdir -p public/img/uploads
-VOLUME ["/app/public/img/uploads"]
+# Uploaded candidate photos and database backups live here; declared as
+# volumes so they persist across redeploys
+RUN mkdir -p public/img/uploads backups
+VOLUME ["/app/public/img/uploads", "/app/backups"]
 
 ENV NODE_ENV=production \
     PORT=3000 \

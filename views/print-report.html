@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>รายงานผลการเลือกตั้ง | E-VOTING</title>
+  <link rel="stylesheet" href="/css/print.css">
+</head>
+<body>
+  <div class="print-toolbar">
+    <label>กิจกรรม:
+      <select id="opt-scope">
+        <option value="one">เฉพาะกิจกรรมนี้</option>
+        <option value="day">ทุกกิจกรรมในวันเดียวกัน</option>
+      </select>
+    </label>
+    <label><input type="checkbox" id="opt-groups" checked> ผู้มาใช้สิทธิ์แยกตามกลุ่ม</label>
+    <label><input type="checkbox" id="opt-hourly" checked> ผู้มาใช้สิทธิ์รายชั่วโมง</label>
+    <label>หน่วยงาน: <input type="text" id="opt-org" placeholder="เช่น วิทยาลัยเทคนิคสงขลา"></label>
+    <button id="btn-print">🖨 พิมพ์</button>
+  </div>
+
+  <div class="sheet">
+    <div id="doc" class="loading">กำลังโหลดข้อมูล...</div>
+  </div>
+
+  <script src="/js/print-common.js"></script>
+  <script src="/js/print-report.js"></script>
+</body>
+</html>

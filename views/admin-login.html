@@ -48,9 +48,14 @@
   </div>
 
   <script>
-    // แสดงกล่องข้อผิดพลาดเมื่อ login ไม่ผ่าน (?error=1)
-    if (new URLSearchParams(location.search).get('error')) {
-      document.getElementById('login-error').style.display = 'block';
+    // แสดงกล่องข้อผิดพลาดเมื่อ login ไม่ผ่าน (?error=1) / ถูกล็อกชั่วคราว (?error=locked)
+    const loginError = new URLSearchParams(location.search).get('error');
+    if (loginError) {
+      const box = document.getElementById('login-error');
+      if (loginError === 'locked') {
+        box.textContent = '⚠ ใส่รหัสผ่านผิดหลายครั้งเกินไป — กรุณารอ 5 นาทีแล้วลองใหม่';
+      }
+      box.style.display = 'block';
     }
   </script>
 </body>

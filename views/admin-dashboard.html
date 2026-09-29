@@ -15,133 +15,528 @@
     <header class="admin-header">
       <div>
         <h1>🗳 แดชบอร์ดควบคุมการเลือกตั้ง</h1>
-        <p style="font-weight:bold;">E-VOTING CONTROL PANEL — ผู้ใช้งาน: <span id="admin-username">...</span></p>
+        <p style="font-weight:bold;">E-VOTING CONTROL PANEL — ผู้ใช้งาน: <span id="admin-username">...</span>
+          <span id="admin-role" class="role-badge"></span></p>
       </div>
-      <a href="/admin/logout" class="btn btn-red" style="font-size:1.2rem;">◄ ออกจากระบบ (LOG OUT)</a>
+      <div class="header-actions">
+        <button id="btn-my-account" class="btn btn-yellow" style="font-size:1.1rem;">👤 บัญชีของฉัน</button>
+        <a href="/admin/logout" class="btn btn-red" style="font-size:1.1rem;">◄ ออกจากระบบ</a>
+      </div>
     </header>
 
-    <!-- ═══════════ กล่องสถิติรวม ═══════════ -->
-    <div class="mt-3" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:24px;">
-      <div class="stat-box">
-        <div id="stat-total-voters" class="stat-number">0</div>
-        <div class="stat-label">ผู้มาใช้สิทธิ์ทั้งหมด (คน)</div>
+    <!-- เตือนรหัสผ่านเริ่มต้น -->
+    <div id="weak-password-banner" class="danger-banner mt-2" style="display:none;">
+      ⚠ บัญชีนี้ยังใช้รหัสผ่านเริ่มต้น (password123) — ใครก็เข้าระบบได้!
+      <button id="btn-fix-password" class="btn btn-yellow">เปลี่ยนรหัสผ่านตอนนี้</button>
+    </div>
+
+    <!-- ═══════════ บัญชีของฉัน (เปลี่ยนรหัสผ่าน / ตั้ง PIN คูหา) ═══════════ -->
+    <div id="my-account-box" class="win-window mt-2" style="display:none;">
+      <div class="win-titlebar">
+        <span>👤 บัญชีของฉัน</span>
+        <div class="win-buttons"><span id="my-account-close" style="cursor:pointer;">✕</span></div>
       </div>
-      <div class="stat-box" style="background:#55ffff;">
-        <div id="stat-total-votes" class="stat-number">0</div>
-        <div class="stat-label">คะแนนที่นับแล้ว (เสียง)</div>
-      </div>
-      <div class="stat-box" style="background:#ffffff;">
-        <div id="stat-updated" class="stat-number" style="font-size:1.6rem; padding-top:14px;">--:--:--</div>
-        <div class="stat-label">อัปเดตล่าสุด (ทุก 3 วินาที)</div>
+      <div class="win-body account-grid">
+        <form id="password-form" class="panel">
+          <h3>🔒 เปลี่ยนรหัสผ่าน</h3>
+          <div id="password-msg" class="form-msg"></div>
+          <label class="form-label">รหัสผ่านปัจจุบัน</label>
+          <input id="pw-current" type="password" class="form-input" autocomplete="current-password" required>
+          <label class="form-label">รหัสผ่านใหม่ (อย่างน้อย 8 ตัวอักษร)</label>
+          <input id="pw-new" type="password" class="form-input" autocomplete="new-password" minlength="8" required>
+          <label class="form-label">ยืนยันรหัสผ่านใหม่</label>
+          <input id="pw-confirm" type="password" class="form-input" autocomplete="new-password" minlength="8" required>
+          <button type="submit" class="btn btn-green mt-2">💾 เปลี่ยนรหัสผ่าน</button>
+        </form>
+        <form id="pin-form" class="panel">
+          <h3>🔑 PIN สำหรับกรอกเลขบัตรแทนที่คูหา</h3>
+          <p class="help-text">ใช้เมื่อชิปบัตรประชาชนอ่านไม่ได้: กดปุ่ม "🔑 เจ้าหน้าที่" (หรือ F9) ที่หน้าคูหา
+            แล้วใส่ PIN นี้พร้อมเลขบัตรของผู้มาใช้สิทธิ์ — ทุกครั้งจะถูกบันทึกชื่อของท่านไว้</p>
+          <p class="b">สถานะ: <span id="pin-status">—</span></p>
+          <div id="pin-msg" class="form-msg"></div>
+          <label class="form-label">PIN ใหม่ (ตัวเลข 6 หลัก)</label>
+          <input id="pin-new" type="password" class="form-input" inputmode="numeric" maxlength="6" autocomplete="off">
+          <label class="form-label">ยืนยันด้วยรหัสผ่านเข้าระบบ</label>
+          <input id="pin-password" type="password" class="form-input" autocomplete="current-password">
+          <div class="mt-2">
+            <button type="submit" class="btn btn-green">💾 ตั้ง PIN</button>
+            <button type="button" id="btn-clear-pin" class="btn">ยกเลิก PIN</button>
+          </div>
+        </form>
       </div>
     </div>
 
-    <!-- ═══════════ ส่วนที่ 2: ผลคะแนนสด ═══════════ -->
+    <!-- ═══════════ กิจกรรมเลือกตั้ง (หลายกิจกรรมในวันเดียว) ═══════════ -->
     <div class="mt-3">
       <div class="section-title">
-        <span>📊 ผลคะแนนแบบเรียลไทม์ (LIVE ELECTION RESULTS)</span>
-        <span class="badge-yellow blink" style="border-color:#fff;">● LIVE</span>
+        <span>🗓 กิจกรรมเลือกตั้ง (ELECTIONS)</span>
+        <button id="btn-add-election" class="btn btn-yellow admin-only" style="font-size:1rem; padding:8px 20px;">＋ สร้างกิจกรรม</button>
       </div>
       <div class="panel" style="border-top:none;">
-        <table class="retro-table">
-          <thead>
-            <tr>
-              <th style="width:110px;">หมายเลข</th>
-              <th>ชื่อผู้สมัคร</th>
-              <th style="width:140px;">คะแนน</th>
-              <th style="width:110px;">ร้อยละ</th>
-            </tr>
-          </thead>
-          <tbody id="results-table-body"></tbody>
-        </table>
+        <p style="font-weight:bold; margin-bottom:14px;">
+          เปิดลงคะแนนได้หลายกิจกรรมพร้อมกัน — เมื่อเสียบบัตร คูหาจะแสดงบัตรเลือกตั้งของทุกกิจกรรมที่เปิดอยู่
+          ซึ่งผู้นั้นมีสิทธิ์และยังไม่ได้ลงคะแนน ให้ลงทีละใบ
+        </p>
 
-        <div id="results-meters"><!-- Block meters เติมด้วย JS --></div>
-      </div>
-    </div>
-
-    <!-- ═══════════ ส่วนที่ 3: จัดการผู้สมัคร (CRUD) ═══════════ -->
-    <div class="mt-3">
-      <div class="section-title">
-        <span>🧑‍💼 จัดการผู้สมัคร (MANAGE CANDIDATES)</span>
-        <button id="btn-add-candidate" class="btn btn-yellow" style="font-size:1rem; padding:8px 20px;">＋ เพิ่มผู้สมัคร</button>
-      </div>
-      <div class="panel" style="border-top:none;">
-
-        <!-- ฟอร์มเพิ่ม/แก้ไขผู้สมัคร (ซ่อนไว้จนกว่าจะกดเพิ่ม/แก้ไข) -->
-        <div id="candidate-form-box" class="win-window mb-2" style="display:none; margin-bottom:20px;">
+        <!-- ฟอร์มสร้าง/แก้ไขกิจกรรม -->
+        <div id="election-form-box" class="win-window" style="display:none; margin-bottom:20px;">
           <div class="win-titlebar">
-            <span id="candidate-form-title">เพิ่มผู้สมัครใหม่</span>
-            <div class="win-buttons"><span id="candidate-form-close" style="cursor:pointer;">✕</span></div>
+            <span id="election-form-title">สร้างกิจกรรมเลือกตั้งใหม่</span>
+            <div class="win-buttons"><span id="election-form-close" style="cursor:pointer;">✕</span></div>
           </div>
           <div class="win-body">
-            <div id="candidate-form-error" class="error-box" style="display:none;"></div>
-            <form id="candidate-form" style="display:grid; grid-template-columns:140px 1fr; gap:0 20px; align-items:start;">
-              <div>
-                <img id="candidate-photo-preview" src="/img/novote.svg" alt="ตัวอย่างรูปผู้สมัคร"
-                     style="width:140px; height:140px; object-fit:cover; border:3px solid #000; background:#55ffff;">
-                <label class="btn" for="candidate-photo-input" style="display:block; margin-top:10px; font-size:0.9rem; padding:8px 4px;">
-                  📷 เลือก / ครอบตัดรูป
-                </label>
-                <input type="file" id="candidate-photo-input" name="photo" accept="image/*" style="display:none;">
-              </div>
-              <div>
-                <label class="form-label" style="margin-top:0;">หมายเลขผู้สมัคร *</label>
-                <input type="number" id="candidate-no-input" name="candidate_no" class="form-input" min="0" max="999" required style="width:160px;">
-                <label class="form-label">ชื่อ-นามสกุลผู้สมัคร *</label>
-                <input type="text" id="candidate-name-input" name="candidate_name" class="form-input" maxlength="255" required>
-                <label class="form-label">รายละเอียดเพิ่มเติม (นโยบาย / สังกัด ฯลฯ)</label>
-                <textarea id="candidate-desc-input" name="description" class="form-input" rows="3" style="resize:vertical;"></textarea>
-                <div class="mt-2">
-                  <button type="submit" id="candidate-save-btn" class="btn btn-green">💾 บันทึกข้อมูล</button>
-                  <button type="button" id="candidate-cancel-btn" class="btn">ยกเลิก</button>
+            <div id="election-form-error" class="error-box" style="display:none;"></div>
+            <form id="election-form">
+              <label class="form-label" style="margin-top:0;">ชื่อกิจกรรมเลือกตั้ง *</label>
+              <input type="text" id="election-title-input" class="form-input" maxlength="255" required
+                     placeholder="เช่น เลือกตั้งนายกองค์การนักวิชาชีพฯ ประจำปีการศึกษา 2569">
+              <div class="form-row">
+                <div>
+                  <label class="form-label">วันที่เลือกตั้ง</label>
+                  <input type="date" id="election-date-input" class="form-input">
                 </div>
+                <div>
+                  <label class="form-label">ผู้มีสิทธิ์ลงคะแนน</label>
+                  <label class="check-option">
+                    <input type="checkbox" id="election-reg-input" checked>
+                    <span>เฉพาะผู้ที่มีชื่อในบัญชีรายชื่อผู้มีสิทธิ์<br>
+                      <small>ไม่เลือก = ทุกคนที่เสียบบัตรประชาชนลงคะแนนได้</small></span>
+                  </label>
+                </div>
+              </div>
+              <div class="form-row">
+                <div>
+                  <label class="form-label">ผลคะแนนระหว่างเปิดลงคะแนน</label>
+                </div>
+                <div>
+                  <label class="check-option" style="margin-top:14px;">
+                    <input type="checkbox" id="election-hide-input" checked>
+                    <span>ซ่อนผลคะแนนจนกว่าจะปิดลงคะแนน<br>
+                      <small>ระหว่างเปิด เห็นเฉพาะจำนวนผู้มาใช้สิทธิ์และจำนวนบัตรรวม — ไม่เห็นคะแนนรายผู้สมัคร</small></span>
+                  </label>
+                </div>
+              </div>
+              <div class="form-row">
+                <div>
+                  <label class="form-label">เปิดลงคะแนนอัตโนมัติ</label>
+                  <input type="datetime-local" id="election-open-at" class="form-input">
+                </div>
+                <div>
+                  <label class="form-label">ปิดลงคะแนนอัตโนมัติ</label>
+                  <input type="datetime-local" id="election-close-at" class="form-input" style="max-width:320px;">
+                  <small class="b" style="display:block; margin-top:4px;">เว้นว่าง = เปิด/ปิดด้วยปุ่มเอง (เวลาไทย) — ปิดแล้วระบบสำรองข้อมูลให้อัตโนมัติ</small>
+                </div>
+              </div>
+              <label class="form-label">รายละเอียด (แสดงในรายงาน)</label>
+              <textarea id="election-desc-input" class="form-input" rows="2" style="resize:vertical;"></textarea>
+              <div class="mt-2">
+                <button type="submit" id="election-save-btn" class="btn btn-green">💾 บันทึกกิจกรรม</button>
+                <button type="button" id="election-cancel-btn" class="btn">ยกเลิก</button>
               </div>
             </form>
           </div>
         </div>
 
-        <!-- ตารางผู้สมัคร -->
         <table class="retro-table">
           <thead>
             <tr>
-              <th style="width:90px;">รูป</th>
-              <th style="width:100px;">หมายเลข</th>
-              <th>ชื่อผู้สมัคร</th>
-              <th>รายละเอียด</th>
-              <th style="width:100px;">คะแนน</th>
-              <th style="width:230px;">จัดการ</th>
+              <th>กิจกรรม</th>
+              <th style="width:120px;">วันที่</th>
+              <th style="width:130px;">สถานะ</th>
+              <th style="width:170px;">ใช้สิทธิ์ / มีสิทธิ์</th>
+              <th style="width:410px;">จัดการ</th>
             </tr>
           </thead>
-          <tbody id="candidates-table-body">
-            <tr><td colspan="6" class="text-center">กำลังโหลดข้อมูล...</td></tr>
+          <tbody id="elections-table-body">
+            <tr><td colspan="5" class="text-center">กำลังโหลดข้อมูล...</td></tr>
           </tbody>
         </table>
       </div>
     </div>
 
-    <!-- ═══════════ ส่วนที่ 1: บันทึกกิจกรรมนักศึกษา ═══════════ -->
-    <div class="mt-3">
+    <!-- ═══════════ แถบกิจกรรมที่กำลังจัดการ (ติดด้านบนเมื่อเลื่อนจอ) ═══════════ -->
+    <div id="election-bar" class="election-bar mt-3">
+      <span class="election-bar-label">กิจกรรมที่กำลังจัดการ:</span>
+      <select id="election-select" class="form-input election-select"></select>
+      <span id="election-bar-status" class="status-badge"></span>
+      <span class="election-bar-actions">
+        <button id="bar-toggle-status" class="btn btn-green admin-only">▶ เปิดลงคะแนน</button>
+        <a id="bar-report" class="btn btn-yellow" target="_blank">🖨 รายงานผล</a>
+      </span>
+    </div>
+
+    <div id="no-election-box" class="panel mt-2 text-center" style="display:none; font-weight:bold;">
+      ยังไม่มีกิจกรรมเลือกตั้ง — กดปุ่ม "สร้างกิจกรรม" ด้านบนเพื่อเริ่มต้น
+    </div>
+
+    <div id="election-scope">
+      <!-- ═══════════ กล่องสถิติของกิจกรรม ═══════════ -->
+      <div class="mt-3 stat-grid">
+        <div class="stat-box" style="background:#ffffff;">
+          <div id="stat-eligible" class="stat-number">0</div>
+          <div class="stat-label">ผู้มีสิทธิ์ (ตามบัญชีรายชื่อ)</div>
+        </div>
+        <div class="stat-box">
+          <div id="stat-total-voters" class="stat-number">0</div>
+          <div class="stat-label">ผู้มาใช้สิทธิ์ (คน) <span id="stat-turnout"></span></div>
+        </div>
+        <div class="stat-box" style="background:#55ffff;">
+          <div id="stat-total-votes" class="stat-number">0</div>
+          <div class="stat-label">คะแนนที่นับแล้ว (เสียง)</div>
+        </div>
+        <div class="stat-box" style="background:#ffffff;">
+          <div id="stat-updated" class="stat-number" style="font-size:1.6rem; padding-top:14px;">--:--:--</div>
+          <div class="stat-label">อัปเดตล่าสุด (ทุก 3 วินาที)</div>
+        </div>
+      </div>
+
+      <!-- ═══════════ ผลคะแนนสด ═══════════ -->
+      <div class="mt-3">
+        <div class="section-title">
+          <span>📊 ผลคะแนนแบบเรียลไทม์ (LIVE ELECTION RESULTS)</span>
+          <span>
+            <a id="export-results" class="btn btn-small" href="#">⬇ CSV</a>
+            <span class="badge-yellow blink" style="border-color:#fff;">● LIVE</span>
+          </span>
+        </div>
+        <div class="panel" style="border-top:none;">
+          <div id="results-hidden-note" class="hidden-results-note" style="display:none;">
+            🔒 ผลคะแนนถูกซ่อนจนกว่าจะปิดลงคะแนน — ขณะนี้มีบัตรลงคะแนนแล้ว <b id="hidden-total-votes">0</b> ใบ
+            (ตรงกับจำนวนผู้มาใช้สิทธิ์ = ระบบนับคะแนนทำงานปกติ)
+          </div>
+          <table class="retro-table">
+            <thead>
+              <tr>
+                <th style="width:110px;">หมายเลข</th>
+                <th>ชื่อผู้สมัคร</th>
+                <th style="width:140px;">คะแนน</th>
+                <th style="width:110px;">ร้อยละ</th>
+              </tr>
+            </thead>
+            <tbody id="results-table-body"></tbody>
+          </table>
+
+          <div id="results-meters"><!-- Block meters เติมด้วย JS --></div>
+        </div>
+      </div>
+
+      <!-- ═══════════ จัดการผู้สมัคร (CRUD) ═══════════ -->
+      <div class="mt-3">
+        <div class="section-title">
+          <span>🧑‍💼 จัดการผู้สมัคร (MANAGE CANDIDATES)</span>
+          <button id="btn-add-candidate" class="btn btn-yellow admin-only" style="font-size:1rem; padding:8px 20px;">＋ เพิ่มผู้สมัคร</button>
+        </div>
+        <div class="panel" style="border-top:none;">
+
+          <!-- ฟอร์มเพิ่ม/แก้ไขผู้สมัคร (ซ่อนไว้จนกว่าจะกดเพิ่ม/แก้ไข) -->
+          <div id="candidate-form-box" class="win-window mb-2" style="display:none; margin-bottom:20px;">
+            <div class="win-titlebar">
+              <span id="candidate-form-title">เพิ่มผู้สมัครใหม่</span>
+              <div class="win-buttons"><span id="candidate-form-close" style="cursor:pointer;">✕</span></div>
+            </div>
+            <div class="win-body">
+              <div id="candidate-form-error" class="error-box" style="display:none;"></div>
+              <form id="candidate-form" style="display:grid; grid-template-columns:140px 1fr; gap:0 20px; align-items:start;">
+                <div>
+                  <img id="candidate-photo-preview" src="/img/novote.svg" alt="ตัวอย่างรูปผู้สมัคร"
+                       style="width:140px; height:140px; object-fit:cover; border:3px solid #000; background:#55ffff;">
+                  <label class="btn" for="candidate-photo-input" style="display:block; margin-top:10px; font-size:0.9rem; padding:8px 4px;">
+                    📷 เลือก / ครอบตัดรูป
+                  </label>
+                  <input type="file" id="candidate-photo-input" name="photo" accept="image/*" style="display:none;">
+                </div>
+                <div>
+                  <label class="form-label" style="margin-top:0;">หมายเลขผู้สมัคร * <small>(99 = ไม่ประสงค์ลงคะแนน)</small></label>
+                  <input type="number" id="candidate-no-input" name="candidate_no" class="form-input" min="0" max="999" required style="width:160px;">
+                  <label class="form-label">ชื่อ-นามสกุลผู้สมัคร *</label>
+                  <input type="text" id="candidate-name-input" name="candidate_name" class="form-input" maxlength="255" required>
+                  <label class="form-label">รายละเอียดเพิ่มเติม (นโยบาย / สังกัด ฯลฯ)</label>
+                  <textarea id="candidate-desc-input" name="description" class="form-input" rows="3" style="resize:vertical;"></textarea>
+                  <div class="mt-2">
+                    <button type="submit" id="candidate-save-btn" class="btn btn-green">💾 บันทึกข้อมูล</button>
+                    <button type="button" id="candidate-cancel-btn" class="btn">ยกเลิก</button>
+                  </div>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <!-- ตารางผู้สมัคร -->
+          <table class="retro-table">
+            <thead>
+              <tr>
+                <th style="width:90px;">รูป</th>
+                <th style="width:100px;">หมายเลข</th>
+                <th>ชื่อผู้สมัคร</th>
+                <th>รายละเอียด</th>
+                <th style="width:100px;">คะแนน</th>
+                <th style="width:230px;" class="admin-only">จัดการ</th>
+              </tr>
+            </thead>
+            <tbody id="candidates-table-body">
+              <tr><td colspan="6" class="text-center">กำลังโหลดข้อมูล...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ═══════════ บัญชีรายชื่อผู้มีสิทธิ์เลือกตั้ง ═══════════ -->
+      <div class="mt-3">
+        <div class="section-title">
+          <span>📜 บัญชีรายชื่อผู้มีสิทธิ์เลือกตั้ง (ELIGIBLE VOTERS)</span>
+          <span id="voters-total-badge" class="badge-yellow" style="border-color:#fff;">รวม 0 คน</span>
+        </div>
+        <div class="panel" style="border-top:none;">
+          <div id="registry-mode-note" class="note-box"></div>
+
+          <div class="toolbar">
+            <button id="btn-open-import" class="btn btn-blue admin-only">📥 Import รายชื่อ</button>
+            <button id="btn-open-add-voter" class="btn admin-only">＋ เพิ่มทีละคน</button>
+            <button id="btn-open-copy" class="btn admin-only">⧉ คัดลอกจากกิจกรรมอื่น</button>
+            <span class="toolbar-sep"></span>
+            <a id="print-announce" class="btn btn-yellow" target="_blank">🖨 พิมพ์ประกาศรายชื่อ</a>
+            <a id="print-checklist" class="btn btn-yellow" target="_blank">🖨 พิมพ์บัญชีลงชื่อ</a>
+            <a id="export-voters" class="btn" href="#">⬇ CSV</a>
+          </div>
+
+          <!-- Import -->
+          <div id="import-box" class="win-window subpanel" style="display:none;">
+            <div class="win-titlebar">
+              <span>Import รายชื่อผู้มีสิทธิ์ (CSV / คัดลอกจาก Excel)</span>
+              <div class="win-buttons"><span class="subpanel-close" style="cursor:pointer;">✕</span></div>
+            </div>
+            <div class="win-body">
+              <p class="help-text">
+                คอลัมน์ที่รองรับ: <b>เลขประจำตัวประชาชน</b>, <b>คำนำหน้า</b> (ไม่บังคับ), <b>ชื่อ</b>, <b>นามสกุล</b>,
+                <b>กลุ่ม/ชั้น/แผนก</b> (ไม่บังคับ) — มีแถวหัวตารางหรือไม่ก็ได้ ถ้าไม่มีหัวตาราง ให้เรียง
+                <code>เลขบัตร, ชื่อ, นามสกุล, กลุ่ม</code> หรือ <code>เลขบัตร, ชื่อ-นามสกุล, กลุ่ม</code><br>
+                ใน Excel: เลือกช่องแล้วคัดลอก (Ctrl+C) มาวางในกล่องด้านล่างได้เลย หรือบันทึกเป็นไฟล์ CSV แล้วเลือกไฟล์
+              </p>
+              <div class="toolbar">
+                <label class="btn" for="import-file-input">📂 เลือกไฟล์ CSV / TXT</label>
+                <input type="file" id="import-file-input" accept=".csv,.txt,.tsv,text/csv,text/plain" style="display:none;">
+                <span id="import-file-name" style="font-weight:bold;"></span>
+              </div>
+              <textarea id="import-text" class="form-input mt-1" rows="8" style="font-family:monospace; font-size:0.95rem;"
+                placeholder="เลขประจำตัวประชาชน,ชื่อ,นามสกุล,ชั้น&#10;1101700203450,นายสมชาย,ใจดี,ปวช.1/1"></textarea>
+              <div class="mt-1" style="display:flex; gap:24px; flex-wrap:wrap; font-weight:bold;">
+                <label><input type="radio" name="import-mode" value="append" checked> เพิ่มต่อจากรายชื่อเดิม (เลขบัตรซ้ำ = อัปเดตชื่อ)</label>
+                <label><input type="radio" name="import-mode" value="replace"> ล้างบัญชีเดิมแล้วแทนที่ทั้งหมด</label>
+              </div>
+              <div class="mt-2">
+                <button id="btn-import-preview" class="btn btn-blue">🔍 ตรวจสอบข้อมูล</button>
+                <button id="btn-import-confirm" class="btn btn-green" style="display:none;">💾 ยืนยัน Import</button>
+              </div>
+              <div id="import-result" class="mt-2"></div>
+            </div>
+          </div>
+
+          <!-- เพิ่มทีละคน -->
+          <div id="add-voter-box" class="win-window subpanel" style="display:none;">
+            <div class="win-titlebar">
+              <span>เพิ่มผู้มีสิทธิ์ทีละคน</span>
+              <div class="win-buttons"><span class="subpanel-close" style="cursor:pointer;">✕</span></div>
+            </div>
+            <div class="win-body">
+              <div id="add-voter-error" class="error-box" style="display:none;"></div>
+              <form id="add-voter-form" class="form-grid-5">
+                <div><label class="form-label">เลขบัตรประชาชน *</label><input id="av-cid" class="form-input" maxlength="17" required inputmode="numeric"></div>
+                <div><label class="form-label">คำนำหน้า</label><input id="av-prefix" class="form-input" maxlength="50"></div>
+                <div><label class="form-label">ชื่อ *</label><input id="av-first" class="form-input" maxlength="150" required></div>
+                <div><label class="form-label">นามสกุล</label><input id="av-last" class="form-input" maxlength="150"></div>
+                <div><label class="form-label">กลุ่ม/ชั้น</label><input id="av-group" class="form-input" maxlength="150"></div>
+              </form>
+              <div class="mt-2"><button id="btn-add-voter-save" class="btn btn-green">💾 เพิ่มรายชื่อ</button></div>
+            </div>
+          </div>
+
+          <!-- คัดลอกจากกิจกรรมอื่น -->
+          <div id="copy-box" class="win-window subpanel" style="display:none;">
+            <div class="win-titlebar">
+              <span>คัดลอกบัญชีรายชื่อจากกิจกรรมอื่น</span>
+              <div class="win-buttons"><span class="subpanel-close" style="cursor:pointer;">✕</span></div>
+            </div>
+            <div class="win-body">
+              <p class="help-text">ใช้เมื่อหลายกิจกรรมมีผู้มีสิทธิ์ชุดเดียวกัน — รายชื่อที่มีอยู่แล้วจะไม่ถูกเพิ่มซ้ำ</p>
+              <div class="toolbar">
+                <select id="copy-from-select" class="form-input" style="width:auto; min-width:320px;"></select>
+                <button id="btn-copy-voters" class="btn btn-green">⧉ คัดลอกรายชื่อ</button>
+                <span id="copy-result" style="font-weight:bold;"></span>
+              </div>
+            </div>
+          </div>
+
+          <div class="toolbar mt-1">
+            <label style="font-weight:bold;">แสดง:
+              <select id="voters-filter" class="form-input" style="width:auto; display:inline-block; padding:6px 10px; font-size:1rem;">
+                <option value="">ทั้งหมด</option>
+                <option value="voted">มาใช้สิทธิ์แล้ว</option>
+                <option value="not">ยังไม่มาใช้สิทธิ์</option>
+              </select>
+            </label>
+          </div>
+          <table id="voters-table" class="retro-table" style="width:100%;">
+            <thead>
+              <tr>
+                <th style="width:70px;">ลำดับ</th>
+                <th style="width:170px;">เลขบัตรประชาชน</th>
+                <th>ชื่อ-นามสกุล</th>
+                <th style="width:150px;">กลุ่ม/ชั้น</th>
+                <th style="width:210px;">สถานะ</th>
+                <th style="width:80px;">ลบ</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ═══════════ บันทึกผู้มาใช้สิทธิ์ ═══════════ -->
+      <div class="mt-3">
+        <div class="section-title">
+          <span>📋 บันทึกผู้มาใช้สิทธิ์ / การเข้าร่วมกิจกรรม (TURNOUT LOG)</span>
+          <span>
+            <a id="export-logs" class="btn btn-small" href="#">⬇ CSV</a>
+            <span id="logs-total-badge" class="badge-yellow" style="border-color:#fff;">รวม 0 คน</span>
+          </span>
+        </div>
+        <div class="panel" style="border-top:none;">
+          <p style="font-weight:bold; margin-bottom:14px;">
+            บันทึกเมื่อผู้ลงคะแนน <u>กดยืนยันลงคะแนนสำเร็จ</u> เท่านั้น (การเสียบบัตรอย่างเดียวไม่นับว่าใช้สิทธิ์)
+          </p>
+          <table id="logs-table" class="retro-table" style="width:100%;">
+            <thead>
+              <tr>
+                <th style="width:70px;">ลำดับ</th>
+                <th style="width:190px;">เลขบัตรประชาชน</th>
+                <th>ชื่อ-นามสกุล (จากบัตร)</th>
+                <th style="width:150px;">กลุ่ม/ชั้น</th>
+                <th style="width:120px;">บัญชีรายชื่อ</th>
+                <th style="width:150px;">ยืนยันตัวตน</th>
+                <th style="width:200px;">เวลาที่ลงคะแนน</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ═══════════ ล้างข้อมูล (DANGER ZONE) ═══════════ -->
+      <div class="mt-3 admin-only">
+        <div class="section-title section-danger">
+          <span>🧹 ล้างข้อมูลของกิจกรรมนี้ (CLEAR ELECTION DATA)</span>
+          <span class="badge-yellow" style="border-color:#fff;">⚠ โซนอันตราย</span>
+        </div>
+        <div class="panel" style="border-top:none;">
+          <p style="font-weight:bold; margin-bottom:14px;">
+            ล้างข้อมูลเฉพาะกิจกรรมที่เลือกอยู่ (ต้องปิดลงคะแนนก่อน) — <u>ข้อมูลที่ล้างแล้วกู้คืนไม่ได้</u>
+          </p>
+
+          <label class="clear-option">
+            <input type="checkbox" id="clear-votes-check">
+            <span>
+              <strong>ผลการลงคะแนน (บันทึกผู้มาใช้สิทธิ์ + คะแนน)</strong><br>
+              <small>ลบรายชื่อผู้มาใช้สิทธิ์และรีเซ็ตคะแนนเป็น 0 พร้อมกัน — ทุกคนจะกลับมาลงคะแนนได้อีกครั้ง</small>
+            </span>
+          </label>
+
+          <label class="clear-option">
+            <input type="checkbox" id="clear-registry-check">
+            <span>
+              <strong>บัญชีรายชื่อผู้มีสิทธิ์</strong><br>
+              <small>ลบรายชื่อที่ import ไว้ทั้งหมดของกิจกรรมนี้ — ผู้สมัครยังอยู่ครบ</small>
+            </span>
+          </label>
+
+          <div class="mt-2" style="display:flex; align-items:center; gap:16px; flex-wrap:wrap;">
+            <button id="btn-clear-data" class="btn btn-red" style="font-size:1.1rem;">🧹 ล้างข้อมูลที่เลือก</button>
+            <span id="clear-data-result" style="font-weight:bold;"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════ บัญชีผู้ใช้ (ผู้ดูแล / เจ้าหน้าที่) ═══════════ -->
+    <div class="mt-3 admin-only">
       <div class="section-title">
-        <span>📋 บันทึกการเข้าร่วมกิจกรรมของนักศึกษา (STUDENT ACTIVITY LOGS)</span>
-        <span id="logs-total-badge" class="badge-yellow" style="border-color:#fff;">รวม 0 คน</span>
+        <span>👥 บัญชีผู้ใช้ (USERS)</span>
+        <button id="btn-add-user" class="btn btn-yellow" style="font-size:1rem; padding:8px 20px;">＋ เพิ่มผู้ใช้</button>
       </div>
       <div class="panel" style="border-top:none;">
-        <table id="logs-table" class="retro-table" style="width:100%;">
+        <p class="help-text">
+          <b>ผู้ดูแลระบบ</b> — จัดการได้ทุกอย่าง &nbsp;|&nbsp;
+          <b>เจ้าหน้าที่</b> — ดูกิจกรรม/บัญชีรายชื่อ/ผู้มาใช้สิทธิ์ พิมพ์เอกสาร และกรอกเลขบัตรแทนที่คูหา (ด้วย PIN ของตัวเอง) แต่แก้ไขข้อมูลไม่ได้
+        </p>
+        <div id="user-form-box" class="win-window subpanel" style="display:none;">
+          <div class="win-titlebar">
+            <span id="user-form-title">เพิ่มผู้ใช้</span>
+            <div class="win-buttons"><span id="user-form-close" style="cursor:pointer;">✕</span></div>
+          </div>
+          <div class="win-body">
+            <div id="user-form-error" class="error-box" style="display:none;"></div>
+            <form id="user-form" class="form-grid-4">
+              <div><label class="form-label">ชื่อผู้ใช้ (ภาษาอังกฤษ) *</label><input id="uf-username" class="form-input" maxlength="50" autocomplete="off"></div>
+              <div><label class="form-label">ชื่อที่แสดง</label><input id="uf-display" class="form-input" maxlength="150"></div>
+              <div><label class="form-label">บทบาท</label>
+                <select id="uf-role" class="form-input"><option value="officer">เจ้าหน้าที่</option><option value="admin">ผู้ดูแลระบบ</option></select></div>
+              <div><label class="form-label" id="uf-password-label">รหัสผ่าน (≥ 8 ตัว) *</label><input id="uf-password" type="password" class="form-input" autocomplete="new-password"></div>
+            </form>
+            <label id="uf-clear-pin-row" class="check-option" style="display:none;"><input type="checkbox" id="uf-clear-pin"> <span>ล้าง PIN คูหาของผู้ใช้นี้ (เช่น PIN รั่วไหล)</span></label>
+            <div class="mt-2"><button id="btn-save-user" class="btn btn-green">💾 บันทึก</button></div>
+          </div>
+        </div>
+        <table class="retro-table">
           <thead>
-            <tr>
-              <th style="width:70px;">ลำดับ</th>
-              <th style="width:220px;">เลขบัตรประชาชน</th>
-              <th>ชื่อ-นามสกุล</th>
-              <th style="width:220px;">เวลาที่ลงคะแนน</th>
-            </tr>
+            <tr><th>ชื่อผู้ใช้</th><th>ชื่อที่แสดง</th><th style="width:130px;">บทบาท</th><th style="width:90px;">PIN คูหา</th>
+                <th style="width:170px;">เข้าระบบล่าสุด</th><th style="width:190px;">จัดการ</th></tr>
           </thead>
+          <tbody id="users-table-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ═══════════ สำรอง / กู้คืนข้อมูล ═══════════ -->
+    <div class="mt-3 admin-only">
+      <div class="section-title">
+        <span>💾 สำรอง / กู้คืนข้อมูล (BACKUP)</span>
+        <button id="btn-backup-now" class="btn btn-yellow" style="font-size:1rem; padding:8px 20px;">💾 สำรองข้อมูลตอนนี้</button>
+      </div>
+      <div class="panel" style="border-top:none;">
+        <p id="backup-info" class="help-text"></p>
+        <div class="toolbar">
+          <label class="btn" for="backup-upload-input">📤 อัปโหลดไฟล์สำรอง (.sql.gz)</label>
+          <input type="file" id="backup-upload-input" accept=".gz" style="display:none;">
+          <span id="backup-msg" class="b"></span>
+        </div>
+        <table class="retro-table mt-1">
+          <thead><tr><th>ไฟล์สำรอง</th><th style="width:110px;">ขนาด</th><th style="width:190px;">เวลา</th><th style="width:240px;">จัดการ</th></tr></thead>
+          <tbody id="backups-table-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ═══════════ บันทึกการใช้งานระบบ ═══════════ -->
+    <div class="mt-3 admin-only">
+      <div class="section-title">
+        <span>🧾 บันทึกการใช้งานระบบ (AUDIT LOG)</span>
+        <span>
+          <a class="btn btn-small" href="/admin/api/audit.csv">⬇ CSV</a>
+          <button id="btn-reload-audit" class="btn btn-small">🔄 โหลดใหม่</button>
+        </span>
+      </div>
+      <div class="panel" style="border-top:none;">
+        <p class="help-text">บันทึกทุกการกระทำของผู้ดูแล/เจ้าหน้าที่ (เข้าระบบ, เปิด-ปิดลงคะแนน, import, ล้างข้อมูล, กรอกเลขบัตรแทน, สำรอง-กู้คืน ฯลฯ)
+          — ลบไม่ได้ และ<b>ไม่มีข้อมูลว่าใครเลือกผู้สมัครคนใด</b></p>
+        <table id="audit-table" class="retro-table" style="width:100%;">
+          <thead><tr><th style="width:165px;">เวลา</th><th style="width:120px;">ผู้ใช้</th><th style="width:170px;">การกระทำ</th>
+            <th>รายละเอียด</th><th style="width:120px;">IP</th></tr></thead>
           <tbody></tbody>
         </table>
       </div>
     </div>
 
-    <!-- ═══════════ ส่วนที่ 4: ตรวจสอบทรัพยากรระบบ ═══════════ -->
-    <div class="mt-3">
+    <!-- ═══════════ ตรวจสอบทรัพยากรระบบ ═══════════ -->
+    <div class="mt-3 admin-only">
       <div class="section-title">
         <span>🖥 ตรวจสอบทรัพยากรที่ระบบต้องใช้ (SYSTEM REQUIREMENTS CHECK)</span>
         <button id="btn-system-check" class="btn btn-yellow" style="font-size:1rem; padding:8px 20px;">🔄 ตรวจสอบอีกครั้ง</button>
@@ -157,41 +552,6 @@
           <p class="text-center" style="font-weight:bold;">กำลังตรวจสอบระบบ...</p>
         </div>
         <p id="syscheck-updated" style="margin-top:12px; font-size:0.9rem; font-weight:bold;"></p>
-      </div>
-    </div>
-
-    <!-- ═══════════ ส่วนที่ 5: ล้างข้อมูล (DANGER ZONE) ═══════════ -->
-    <div class="mt-3">
-      <div class="section-title section-danger">
-        <span>🧹 ล้างข้อมูลสำหรับการเลือกตั้งครั้งใหม่ (CLEAR ELECTION DATA)</span>
-        <span class="badge-yellow" style="border-color:#fff;">⚠ โซนอันตราย</span>
-      </div>
-      <div class="panel" style="border-top:none;">
-        <p style="font-weight:bold; margin-bottom:14px;">
-          เลือกข้อมูลที่ต้องการล้าง — <u>ข้อมูลที่ล้างแล้วกู้คืนไม่ได้</u>
-          (รายชื่อผู้สมัครจะไม่ถูกลบ หากต้องการลบให้ใช้ส่วน "จัดการผู้สมัคร")
-        </p>
-
-        <label class="clear-option">
-          <input type="checkbox" id="clear-logs-check">
-          <span>
-            <strong>บันทึกผู้มาใช้สิทธิ์ (Activity Logs)</strong><br>
-            <small>ลบรายชื่อผู้มาใช้สิทธิ์ทั้งหมด — ทุกคนจะกลับมาลงคะแนนได้อีกครั้ง</small>
-          </span>
-        </label>
-
-        <label class="clear-option">
-          <input type="checkbox" id="clear-votes-check">
-          <span>
-            <strong>คะแนนของผู้สมัครทุกคน (Vote Counts)</strong><br>
-            <small>รีเซ็ตคะแนนทั้งหมดเป็น 0 — รายชื่อและรูปผู้สมัครยังอยู่ครบ</small>
-          </span>
-        </label>
-
-        <div class="mt-2" style="display:flex; align-items:center; gap:16px; flex-wrap:wrap;">
-          <button id="btn-clear-data" class="btn btn-red" style="font-size:1.1rem;">🧹 ล้างข้อมูลที่เลือก</button>
-          <span id="clear-data-result" style="font-weight:bold;"></span>
-        </div>
       </div>
     </div>
 

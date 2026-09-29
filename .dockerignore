@@ -8,3 +8,4 @@ npm-debug.log
 *.md
 install.sh
 public/img/uploads/*
+backups
