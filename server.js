@@ -386,6 +386,47 @@ app.use((req, res, next) => (/\/voters\/import$/.test(req.path) ? jsonLarge : js
 app.use(express.urlencoded({ extended: false }));
 app.use(express.static(path.join(__dirname, 'public')));
 
+/* ------------------------------------------------------------------ */
+/*  Cache busting — ต่อท้าย ?v=<hash เนื้อไฟล์> ให้ลิงก์ /js /css /vendor ในหน้าเว็บ   */
+/*  Cloudflare บังคับ Cache-Control ของไฟล์ JS/CSS เป็น 4 ชั่วโมง เบราว์เซอร์จึงใช้ */
+/*  JS เก่ากับ HTML ใหม่หลัง deploy (หน้าเว็บพัง) — เมื่อไฟล์เปลี่ยน URL ก็เปลี่ยน     */
+/*  ทำให้ได้ไฟล์ใหม่ทันที ส่วนไฟล์ที่ไม่เปลี่ยนยังใช้แคชได้ตามปกติ                     */
+/* ------------------------------------------------------------------ */
+const PUBLIC_DIR = path.join(__dirname, 'public');
+const assetHashes = new Map(); // "/js/kiosk.js" -> hash (คำนวณครั้งเดียวต่อการรัน — ไฟล์ไม่เปลี่ยนระหว่างรัน)
+const viewCache = new Map();
+
+function assetVersion(urlPath) {
+  if (!assetHashes.has(urlPath)) {
+    let hash = '';
+    try {
+      const file = path.join(PUBLIC_DIR, urlPath);
+      if (file.startsWith(PUBLIC_DIR)) {
+        hash = crypto.createHash('sha1').update(fs.readFileSync(file)).digest('hex').slice(0, 10);
+      }
+    } catch (e) {
+      hash = '';
+    }
+    assetHashes.set(urlPath, hash);
+  }
+  return assetHashes.get(urlPath);
+}
+
+// ส่งไฟล์ใน views/ พร้อมเติมเวอร์ชันให้ลิงก์ไฟล์ static — HTML เองห้ามแคช
+function sendView(res, name) {
+  if (!viewCache.has(name)) {
+    const html = fs
+      .readFileSync(path.join(__dirname, 'views', name), 'utf8')
+      .replace(/(src|href)="(\/(?:js|css|vendor)\/[^"?#]+)"/g, (m, attr, url) => {
+        const v = assetVersion(url);
+        return v ? `${attr}="${url}?v=${v}"` : m;
+      });
+    viewCache.set(name, html);
+  }
+  res.set('Cache-Control', 'no-cache');
+  res.type('html').send(viewCache.get(name));
+}
+
 // อยู่หลัง reverse proxy ของ Coolify → เชื่อ X-Forwarded-* เพื่อให้ req.ip เป็น IP จริง
 // (ใช้ใน audit log / จำกัดการเดารหัสผ่าน) และรู้ว่าเป็น HTTPS (cookie แบบ secure)
 if (CONFIG.TRUST_PROXY) app.set('trust proxy', 1);
@@ -1038,7 +1079,7 @@ app.get('/admin', (req, res) => {
 
 app.get('/admin/login', (req, res) => {
   if (req.session && req.session.userId) return res.redirect('/admin/dashboard');
-  res.sendFile(path.join(__dirname, 'views', 'admin-login.html'));
+  sendView(res, 'admin-login.html');
 });
 
 app.post('/admin/login', async (req, res) => {
@@ -1085,7 +1126,7 @@ app.get('/admin/logout', requireLoginWith((req, res) => res.redirect('/admin/log
 });
 
 app.get('/admin/dashboard', requireLogin, (req, res) => {
-  res.sendFile(path.join(__dirname, 'views', 'admin-dashboard.html'));
+  sendView(res, 'admin-dashboard.html');
 });
 
 // ข้อมูลผู้ใช้ที่ล็อกอินอยู่ (ใช้ซ่อน/แสดงส่วนต่าง ๆ ของแดชบอร์ดตามบทบาท)
@@ -1871,10 +1912,10 @@ app.get('/admin/api/audit.csv', requireAdminApi, async (req, res) => {
 
 // หน้าพิมพ์ (ประกาศรายชื่อผู้มีสิทธิ์ / รายงานผลการเลือกตั้ง) — ข้อมูลโหลดด้วย JS จาก API ด้านบน
 app.get('/admin/print/voters', requireLogin, (req, res) => {
-  res.sendFile(path.join(__dirname, 'views', 'print-voters.html'));
+  sendView(res, 'print-voters.html');
 });
 app.get('/admin/print/report', requireLogin, (req, res) => {
-  res.sendFile(path.join(__dirname, 'views', 'print-report.html'));
+  sendView(res, 'print-report.html');
 });
 
 /* ------------------------------------------------------------------ */
@@ -2484,7 +2525,7 @@ async function runScheduler() {
 /*  หน้าจอคูหาลงคะแนน (Voter Kiosk)                                     */
 /* ------------------------------------------------------------------ */
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'views', 'kiosk.html'));
+  sendView(res, 'kiosk.html');
 });
 
 /* ------------------------------------------------------------------ */
